@@ -1,7 +1,7 @@
 #!/bin/sh
 
-version=2.7.0
-gitversion=6c0a9e6
+version=2.7.5
+gittag=k4dirstat-2.7.5
 
-git clone http://grumpypenguin.org/~josh/kdirstat.git
-git archive --format=tar --prefix=k4dirstat-${version}/ --remote=kdirstat ${gitversion} | bzip2 --best -cf - > k4dirstat-${version}.tar.bz2
+git clone https://bitbucket.org/jeromerobert/k4dirstat.git
+git archive --format=tar --prefix=k4dirstat-${version}/ --remote=k4dirstat ${gittag} | bzip2 --best -cf - > k4dirstat-${version}.tar.bz2

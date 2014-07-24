@@ -1,8 +1,8 @@
-%define preversion 20101010git6c0a9e6
+%define preversion 20140315git1ad2e96
 
 Name:           k4dirstat
-Version:        2.7.0
-Release:        0.10.%{preversion}%{?dist}
+Version:        2.7.5
+Release:        0.11.%{preversion}%{?dist}
 Summary:        Graphical Directory Statistics for Used Disk Space
 
 Group:          Applications/System
@@ -68,17 +68,23 @@ fi
 
 %files
 %defattr(-,root,root,-)
-%doc AUTHORS  COPYING  COPYING.LIB  CREDITS  README
+%doc AUTHORS  COPYING  COPYING.LIB  CREDITS
 %{_kde4_bindir}/k4dirstat
 %{_kde4_bindir}/kdirstat
 %{_kde4_datadir}/applications/kde4/k4dirstat.desktop
 %{_kde4_datadir}/config.kcfg/k4dirstat.kcfg
 %{_kde4_docdir}/HTML/en/k4dirstat/
 %{_kde4_iconsdir}/hicolor/*/apps/k4dirstat.png
+%{_kde4_iconsdir}/hicolor/*/apps/k4dirstat.svg*
 %{_kde4_appsdir}/k4dirstat
 
 
 %changelog
+* Thu Jul 24 2014 Evgueni Souleimanov <esoule@100500.ca> - 2.7.5-0.11.20140315git1ad2e96
+- update to version 2.7.5 from Jerome Robert
+- remove reference to README from doc, it is not present
+- add reference to k4dirstat.svgz scalable icon
+
 * Sat Aug 03 2013 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.7.0-0.10.20101010git6c0a9e6
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_20_Mass_Rebuild
 
