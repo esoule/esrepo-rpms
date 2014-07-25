@@ -1,7 +1,11 @@
+
+## Compile Krusader in debug mode
+%define _kde4_buildtype debugfull
+
 Name:		krusader
 Version:	2.4.0
 %global beta beta3
-Release:	0.10.%{beta}%{?dist}
+Release:	0.10.%{beta}.0.3%{?dist}
 Summary:	An advanced twin-panel (commander-style) file-manager for KDE
 
 Group:		Applications/File
@@ -13,6 +17,8 @@ Source0:	http://downloads.sourceforge.net/%{name}/%{name}-%{version}%{?beta:-%{b
 Patch0:		krusader-2.3.0-beta1-default-mimetypes.patch
 # Generate manpage
 Patch1:		krusader-2.4.0-beta2-generate-manpage.patch
+# Adapt for KRun class in KDE 4.3.4
+Patch2:		krusader-2.4.0-beta3-kde-4.3.4-krun.patch
 ## upstream patches
 # fix crash in video file preview on F3 (kde#309159)
 Patch100:	krusader-2.4.0-beta3-kde#309159.patch
@@ -42,6 +48,7 @@ friendly, fast and looks great on your desktop! You should give it a try.
 %setup -q -n %{name}-%{version}%{?beta:-%{beta}}
 %patch0 -p1 -b .mimetypes
 %patch1 -p1 -b .generate-manpage
+%patch2 -p1 -b .kde-4.3.4-krun
 ## upstream patches
 %patch100 -p1 -b .kde#309159
 
@@ -107,6 +114,10 @@ rm -rf %{buildroot}
 %{_mandir}/man1/krusader.1.gz
 
 %changelog
+* Fri Jul 25 2014 Evgueni Souleimanov <esoule@100500.ca> - 2.4.0-0.10.beta3.0.3
+- Fix compilation problem with kdelibs-devel-4.3.4 on CentOS 6.4
+- Build Krusader in debug mode
+
 * Sat Aug 03 2013 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.4.0-0.10.beta3
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_20_Mass_Rebuild
 
