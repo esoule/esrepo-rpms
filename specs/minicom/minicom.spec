@@ -10,7 +10,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires: lockdev-devel ncurses-devel
 Requires: lockdev lrzsz
 
-Source0: http://alioth.debian.org/frs/download.php/2332/minicom-2.3.tar.gz
+Source0: http://alioth.debian.org/frs/download.php/file/2332/minicom-2.3.tar.gz
 
 Patch1: minicom-2.3-ncurses.patch
 Patch2: minicom-2.3-drop-privs.patch
