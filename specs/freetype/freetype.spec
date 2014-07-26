@@ -9,7 +9,7 @@
 Summary: A free and portable font rendering engine
 Name: freetype
 Version: 2.3.11
-Release: 14%{?dist}.1
+Release: 14%{?_release_tag}%{!?_release_tag:%{?dist}.1}
 License: FTL or GPLv2+
 Group: System Environment/Libraries
 URL: http://www.freetype.org
@@ -293,6 +293,9 @@ rm -rf $RPM_BUILD_ROOT
 %doc docs/tutorial
 
 %changelog
+* Fri Jul 25 2014 Evgueni Souleimanov <esoule@100500.ca> 2.3.11-14.el6_3.1.0.1
+- allow customizing release string on command line
+
 * Thu Jan 24 2013 Marek Kasik <mkasik@redhat.com> 2.3.11-14.el6_3.1
 - Fix CVE-2012-5669
     (Use correct array size for checking `glyph_enc')
