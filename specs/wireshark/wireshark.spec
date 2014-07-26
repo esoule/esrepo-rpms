@@ -17,14 +17,14 @@ Version:	1.8.10
 %if %{svn_version}
 Release: 	0.%{svn_version}%{?dist}
 %else
-Release: 	7.2%{?dist}
+Release: 	7.3%{?dist}
 %endif
 License: 	GPL+
 Group: 		Applications/Internet
 %if %{svn_version}
 Source0:	http://www.wireshark.org/download/automated/src/wireshark-%{version}-SVN-%{svn_version}.tar.bz2
 %else
-Source0:	http://wireshark.org/download/src/%{name}-%{version}.tar.bz2
+Source0:	http://wireshark.org/download/src/all-versions/%{name}-%{version}.tar.bz2
 %endif
 Source3:	wireshark.desktop
 Source4:	wireshark-autoconf.m4
@@ -395,6 +395,9 @@ gtk-update-icon-cache %{_datadir}/icons/hicolor &>/dev/null || :
 %{_datadir}/aclocal/*
 
 %changelog
+* Sat Jul 26 2014 Evgueni Souleimanov <esoule@100500.ca> 1.8.10-7.3
+- update URL to source tarball
+
 * Sun Jun 15 2014 Evgueni Souleimanov <esoule@100500.ca> 1.8.10-7.2
 - run Wireshark GUI as user, not root (remove pam configs)
 - allow packet capture to users who are members of group
