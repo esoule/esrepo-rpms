@@ -26,7 +26,7 @@ License:      GPL
 URL:          http://www.gnu.org/software/autoconf
 Group:        RTEMS/4.6
 Version:      %{rpmvers}
-Release:      1.0.4%{?dist}
+Release:      1.0.5%{?dist}
 Summary:      Tool for automatically generating GNU style Makefile.in's
 BuildArch:    noarch
 BuildRoot:    %{_defaultbuildroot}
@@ -34,7 +34,7 @@ BuildRequires: perl m4 gawk emacs
 Requires:     m4 gawk
 Requires(post,preun):  /sbin/install-info
 
-Source: autoconf-%{srcvers}.tar.bz2
+Source: ftp://ftp.gnu.org/pub/gnu/autoconf/autoconf-%{srcvers}.tar.bz2
 # Patch0: autoconf-2.59-quoting-20040817-1.diff
 
 %description
@@ -96,6 +96,9 @@ fi
 %exclude %{_datadir}/emacs/site-lisp
 
 %changelog
+* Sat Jul 26 2014 Evgueni Souleimanov <esoule@100500.ca> - 2.59-1.0.5
+- Update URL to source tarball
+
 * Tue Jul 1 2014 Evgueni Souleimanov <esoule@100500.ca> - 2.59-1.0.4
 - Update rpm tags to match rpm 4.8.0
 - gzip all man pages and info pages
