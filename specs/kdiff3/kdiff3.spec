@@ -1,6 +1,6 @@
 Name:           kdiff3
-Version:        0.9.97
-Release:        7.1.1%{?dist}
+Version:        0.9.98
+Release:        1.1.1%{?dist}
 Summary:        Compare + merge 2 or 3 files or directories
 
 Group:          Development/Tools
@@ -19,7 +19,8 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 # fix build against kde-4.5 (pre)releases
 # Patch2:        kdiff3-0.9.95-docbook_fixes.patch
 
-Patch0:         kdiff3-0.9.97-saving_files.patch
+# No longer needed for 0.9.98
+# Patch0:         kdiff3-0.9.97-saving_files.patch
 
 BuildRequires:  desktop-file-utils
 BuildRequires:  gettext
@@ -39,7 +40,6 @@ KDiff3 is a program that
 
 %prep
 %setup -q -n %{name}-%{version}
-%patch0 -p2
 
 %build
 mkdir -p %{_target_platform}
@@ -112,6 +112,9 @@ update-desktop-database -q &> /dev/null
 %{_kde4_datadir}/kde4/services/kdiff3*.desktop
 
 %changelog
+* Tue Jul 29 2014 Evgueni Souleimanov <esoule@100500.ca> - 0.9.98-1.1.1
+- Update to 0.9.98
+
 * Tue Jul 29 2014 Evgueni Souleimanov <esoule@100500.ca> - 0.9.97-7.1.1
 - fix plugin packaging errors on EL6
 - avoid warning "File listed twice" on packaging
