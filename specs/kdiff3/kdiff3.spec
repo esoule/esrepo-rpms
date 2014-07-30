@@ -1,6 +1,6 @@
 Name:           kdiff3
 Version:        0.9.97
-Release:        7%{?dist}
+Release:        7.1.1%{?dist}
 Summary:        Compare + merge 2 or 3 files or directories
 
 Group:          Development/Tools
@@ -61,6 +61,9 @@ make -C %{_target_platform} install/fast DESTDIR=$RPM_BUILD_ROOT
 %find_lang kdiff3fileitemactionplugin || touch kdiff3fileitemactionplugin.lang
 cat %{name}plugin.lang >> %{name}.lang
 cat kdiff3fileitemactionplugin.lang >> %{name}.lang
+# avoid warning "File listed twice" on packaging
+cat %{name}.lang | LANG=C sort | uniq >%{name}.lang.1
+mv %{name}.lang.1 %{name}.lang
 
 # Desktop.
 desktop-file-install  --vendor="" \
@@ -96,7 +99,11 @@ update-desktop-database -q &> /dev/null
 %defattr(-,root,root,-)
 %doc AUTHORS COPYING ChangeLog README TODO
 %{_kde4_bindir}/kdiff3
+%if 0%{?fedora} >= 19 || 0%{?rhel} >= 7
 %{_kde4_libdir}/kde4/kdiff3fileitemaction.so
+%else
+%{_kde4_libdir}/kde4/libkdiff3plugin.so
+%endif
 %{_kde4_datadir}/applications/kde4/*.desktop
 %{_kde4_appsdir}/kdiff3/
 %{_kde4_appsdir}/kdiff3part/
@@ -105,6 +112,10 @@ update-desktop-database -q &> /dev/null
 %{_kde4_datadir}/kde4/services/kdiff3*.desktop
 
 %changelog
+* Tue Jul 29 2014 Evgueni Souleimanov <esoule@100500.ca> - 0.9.97-7.1.1
+- fix plugin packaging errors on EL6
+- avoid warning "File listed twice" on packaging
+
 * Sat Aug 03 2013 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 0.9.97-7
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_20_Mass_Rebuild
 
