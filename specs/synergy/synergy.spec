@@ -1,20 +1,23 @@
 Summary: Share mouse and keyboard between multiple computers over the network
 Name: synergy
 Version: 1.4.10
-Release: 2%{?dist}
+Release: 2.1.1%{?dist}
 License: GPLv2
 Group: System Environment/Daemons
 URL: http://synergy-foss.org/
 Source: http://synergy.googlecode.com/files/synergy-%{version}-Source.tar.gz
+Patch1: synergy-cmake-xrandr-test.patch
 # Last built version of synergy-plus was 1.3.4-7.fc16
 Provides: synergy-plus = %{version}-%{release}
 Obsoletes: synergy-plus < 1.3.4-8
 BuildRequires: cmake
 BuildRequires: libX11-devel
 BuildRequires: libXext-devel
+BuildRequires: libXi-devel
 BuildRequires: libXtst-devel
 BuildRequires: libXt-devel
 BuildRequires: libXinerama-devel
+BuildRequires: libXrandr-devel
 
 %description
 Synergy lets you easily share your mouse and keyboard between multiple
@@ -26,6 +29,9 @@ as moving the mouse off the edge of your screen.
 
 %prep
 %setup -q -n %{name}-%{version}-Source
+## fix line endings before applying patch1
+sed -i -e 's/\r$//' CMakeLists.txt
+%patch1 -p1
 
 
 %build
@@ -52,6 +58,10 @@ install -D -p -m 0644 doc/synergys.man %{buildroot}%{_mandir}/man8/synergys.8
 
 
 %changelog
+* Sat Aug 02 2014 Evgueni Souleimanov <esoule@100500.ca> - 1.4.10-2.1.1
+- include libXi-devel and libXrandr-devel prerequisites for EL6
+- change xrandr test in cmake script so that it passes with cmake on EL6
+
 * Sun Aug 04 2013 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.4.10-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_20_Mass_Rebuild
 
