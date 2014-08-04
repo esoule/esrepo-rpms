@@ -3,7 +3,7 @@
 # 	http://www.rtems.org/bugzilla
 #
 
-%define _prefix                 /opt/rtems-4.11
+%define _prefix                 /opt/rtems-4.6ng11
 %define _exec_prefix            %{_prefix}
 %define _bindir                 %{_exec_prefix}/bin
 %define _sbindir                %{_exec_prefix}/sbin
@@ -15,8 +15,8 @@
 %define _localstatedir          %{_prefix}/var
 %define _includedir             %{_prefix}/include
 %define _libdir                 %{_exec_prefix}/%{_lib}
-%define _mandir                 %{_datarootdir}/man
-%define _infodir                %{_datarootdir}/info
+%define _mandir                 %{_prefix}/man
+%define _infodir                %{_prefix}/info
 %define _localedir              %{_datarootdir}/locale
 
 %ifos cygwin cygwin32 mingw mingw32
@@ -50,11 +50,11 @@
 %define binutils_version 2.24
 %define binutils_rpmvers %{expand:%(echo "2.24" | tr - _ )}
 
-Name:		rtems-4.11-powerpc-rtems4.11-binutils
-Summary:	Binutils for target powerpc-rtems4.11
+Name:		rtems-4.6ng11-powerpc-rtems-binutils
+Summary:	Binutils for target powerpc-rtems
 Group:		Development/Tools
 Version:	%{binutils_rpmvers}
-Release:	1%{?dist}
+Release:	1.1.1%{?dist}
 License:	GPL/LGPL
 URL: 		http://sourceware.org/binutils
 %{?el5:BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)}
@@ -72,7 +72,7 @@ BuildRequires:	%{?suse:makeinfo}%{!?suse:texinfo} >= 4.2
 BuildRequires:	flex
 BuildRequires:	bison
 
-Requires:	rtems-4.11-binutils-common
+Requires:	rtems-4.6ng11-binutils-common
 
 Source0: ftp://ftp.gnu.org/gnu/binutils/binutils-%{binutils_pkgvers}.tar.bz2
 %if "%{binutils_version}" == "2.23.2"
@@ -80,7 +80,7 @@ Patch0:  ftp://ftp.rtems.org/pub/rtems/SOURCES/4.11/binutils-2.23.2-rtems4.11-20
 %endif
 
 %description
-Cross binutils for target powerpc-rtems4.11
+Cross binutils for target powerpc-rtems
 %prep
 %setup -q -c -T -n %{name}-%{version}
 
@@ -99,7 +99,7 @@ cd ..
   CFLAGS="$RPM_OPT_FLAGS" \
   ../binutils-%{binutils_pkgvers}/configure \
     --build=%_build --host=%_host \
-    --target=powerpc-rtems4.11 \
+    --target=powerpc-rtems \
     --verbose --disable-nls \
     --without-included-gettext \
     --disable-win32-registry \
@@ -142,17 +142,17 @@ cd ..
   rm -f ${RPM_BUILD_ROOT}%{_libdir}/libiberty*
 
 # manpages without corresponding tools
-  if test ! -f ${RPM_BUILD_ROOT}%{_bindir}/powerpc-rtems4.11-dlltool%{_exeext}; then 
-    rm -f ${RPM_BUILD_ROOT}%{_mandir}/man1/powerpc-rtems4.11-dlltool*
+  if test ! -f ${RPM_BUILD_ROOT}%{_bindir}/powerpc-rtems-dlltool%{_exeext}; then 
+    rm -f ${RPM_BUILD_ROOT}%{_mandir}/man1/powerpc-rtems-dlltool*
   fi
-  if test ! -f ${RPM_BUILD_ROOT}%{_bindir}/powerpc-rtems4.11-nlmconv%{_exeext}; then 
-    rm -f ${RPM_BUILD_ROOT}%{_mandir}/man1/powerpc-rtems4.11-nlmconv*
+  if test ! -f ${RPM_BUILD_ROOT}%{_bindir}/powerpc-rtems-nlmconv%{_exeext}; then 
+    rm -f ${RPM_BUILD_ROOT}%{_mandir}/man1/powerpc-rtems-nlmconv*
   fi
-  if test ! -f ${RPM_BUILD_ROOT}%{_bindir}/powerpc-rtems4.11-windres%{_exeext}; then 
-    rm -f ${RPM_BUILD_ROOT}%{_mandir}/man1/powerpc-rtems4.11-windres*
+  if test ! -f ${RPM_BUILD_ROOT}%{_bindir}/powerpc-rtems-windres%{_exeext}; then 
+    rm -f ${RPM_BUILD_ROOT}%{_mandir}/man1/powerpc-rtems-windres*
   fi
-  if test ! -f ${RPM_BUILD_ROOT}%{_bindir}/powerpc-rtems4.11-windmc%{_exeext}; then 
-    rm -f ${RPM_BUILD_ROOT}%{_mandir}/man1/powerpc-rtems4.11-windmc*
+  if test ! -f ${RPM_BUILD_ROOT}%{_bindir}/powerpc-rtems-windmc%{_exeext}; then 
+    rm -f ${RPM_BUILD_ROOT}%{_mandir}/man1/powerpc-rtems-windmc*
   fi
 
   cd ..
@@ -189,40 +189,40 @@ sed -e 's,^\s*/usr/lib/rpm.*/brp-strip,./brp-strip,' \
   rm -rf $RPM_BUILD_ROOT
 
 # ==============================================================
-# powerpc-rtems4.11-binutils
+# powerpc-rtems-binutils
 # ==============================================================
-# %package -n rtems-4.11-powerpc-rtems4.11-binutils
-# Summary:      rtems binutils for powerpc-rtems4.11
+# %package -n rtems-4.6ng11-powerpc-rtems-binutils
+# Summary:      rtems binutils for powerpc-rtems
 # Group: Development/Tools
 # %if %build_infos
-# Requires: rtems-4.11-binutils-common
+# Requires: rtems-4.6ng11-binutils-common
 # %endif
 
-%description -n rtems-4.11-powerpc-rtems4.11-binutils
-GNU binutils targetting powerpc-rtems4.11.
+%description -n rtems-4.6ng11-powerpc-rtems-binutils
+GNU binutils targetting powerpc-rtems.
 
-%files -n rtems-4.11-powerpc-rtems4.11-binutils
+%files -n rtems-4.6ng11-powerpc-rtems-binutils
 %defattr(-,root,root)
 %dir %{_prefix}
 %dir %{_datarootdir}
 
 %dir %{_mandir}
 %dir %{_mandir}/man1
-%{_mandir}/man1/powerpc-rtems4.11-*.1*
+%{_mandir}/man1/powerpc-rtems-*.1*
 
 %dir %{_bindir}
-%{_bindir}/powerpc-rtems4.11-*
+%{_bindir}/powerpc-rtems-*
 
-%dir %{_exec_prefix}/powerpc-rtems4.11
-%dir %{_exec_prefix}/powerpc-rtems4.11/bin
-%{_exec_prefix}/powerpc-rtems4.11/bin/*
+%dir %{_exec_prefix}/powerpc-rtems
+%dir %{_exec_prefix}/powerpc-rtems/bin
+%{_exec_prefix}/powerpc-rtems/bin/*
 
-%dir %{_exec_prefix}/powerpc-rtems4.11/lib
-%{_exec_prefix}/powerpc-rtems4.11/lib/ldscripts
+%dir %{_exec_prefix}/powerpc-rtems/lib
+%{_exec_prefix}/powerpc-rtems/lib/ldscripts
 # ==============================================================
-# rtems-4.11-binutils-common
+# rtems-4.6ng11-binutils-common
 # ==============================================================
-%package -n rtems-4.11-binutils-common
+%package -n rtems-4.6ng11-binutils-common
 Summary:      Base package for RTEMS binutils
 Group: Development/Tools
 %{?_with_noarch_subpackages:BuildArch: noarch}
@@ -230,13 +230,13 @@ Group: Development/Tools
 Requires(post):		/sbin/install-info
 Requires(preun):	/sbin/install-info
 
-%description -n rtems-4.11-binutils-common
+%description -n rtems-4.6ng11-binutils-common
 
 RTEMS is an open source operating system for embedded systems.
 
 This is the base for binutils regardless of target CPU.
 
-%post -n rtems-4.11-binutils-common
+%post -n rtems-4.6ng11-binutils-common
   /sbin/install-info --info-dir=%{_infodir} %{_infodir}/as.info.gz || :
   /sbin/install-info --info-dir=%{_infodir} %{_infodir}/bfd.info.gz || :
   /sbin/install-info --info-dir=%{_infodir} %{_infodir}/binutils.info.gz || :
@@ -244,7 +244,7 @@ This is the base for binutils regardless of target CPU.
   /sbin/install-info --info-dir=%{_infodir} %{_infodir}/standards.info.gz || :
   /sbin/install-info --info-dir=%{_infodir} %{_infodir}/gprof.info.gz || :
 
-%preun -n rtems-4.11-binutils-common
+%preun -n rtems-4.6ng11-binutils-common
 if [ $1 -eq 0 ]; then
   /sbin/install-info --delete --info-dir=%{_infodir} %{_infodir}/as.info.gz || :
   /sbin/install-info --delete --info-dir=%{_infodir} %{_infodir}/bfd.info.gz || :
@@ -254,7 +254,7 @@ if [ $1 -eq 0 ]; then
   /sbin/install-info --delete --info-dir=%{_infodir} %{_infodir}/gprof.info.gz || :
 fi
 
-%files -n rtems-4.11-binutils-common
+%files -n rtems-4.6ng11-binutils-common
 %defattr(-,root,root)
 %dir %{_prefix}
 %dir %{_infodir}
@@ -270,6 +270,11 @@ fi
 %dir %{_prefix}/share/locale
 
 %changelog
+* Mon Aug 04 2014 Evgueni Souleimanov <esoule@100500.ca> - 2.24-1.1.1
+- Build binutils 2.24 for developing with rtems-4.6 (rtems-4.6ng11)
+- place manpages to /opt/rtems-4.6ng11/man
+- place info pages to /opt/rtems-4.6ng11/info
+
 * Wed Dec 04 2013 RTEMS Project - 2.24-1
 - Original Package, as provided by RTEMS Project for RTEMS 4.11
 
