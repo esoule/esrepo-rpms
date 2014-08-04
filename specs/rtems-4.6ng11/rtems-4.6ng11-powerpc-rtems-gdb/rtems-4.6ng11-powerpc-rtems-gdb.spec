@@ -334,3 +334,7 @@ fi
 %{_infodir}/stabs.info*
 %{_infodir}/annotate.info*
 
+%changelog
+* Tue May 06 2014 RTEMS Project - 7.7.1-1
+- Original Package, as provided by RTEMS Project for RTEMS 4.11
+

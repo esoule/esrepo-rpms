@@ -269,3 +269,7 @@ fi
 %dir %{_prefix}/share
 %dir %{_prefix}/share/locale
 
+%changelog
+* Wed Dec 04 2013 RTEMS Project - 2.24-1
+- Original Package, as provided by RTEMS Project for RTEMS 4.11
+
