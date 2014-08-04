@@ -1,0 +1,634 @@
+diff -Naur gcc-4.8.2.orig/config/picflag.m4 gcc-4.8.2/config/picflag.m4
+--- gcc-4.8.2.orig/config/picflag.m4	2012-01-23 07:25:28.000000000 +0100
++++ gcc-4.8.2/config/picflag.m4	2014-02-10 09:27:21.583531230 +0100
+@@ -17,7 +17,9 @@
+     hppa*64*-*-hpux*)
+ 	# PIC is the default for 64-bit PA HP-UX.
+ 	;;
+-    i[[34567]]86-*-cygwin* | i[[34567]]86-*-mingw* | x86_64-*-mingw*)
++    i[[34567]]86-*-cygwin* | x86_64-*-cygwin*)
++	;;
++    i[[34567]]86-*-mingw* | x86_64-*-mingw*)
+ 	;;
+     i[[34567]]86-*-interix[[3-9]]*)
+ 	# Interix 3.x gcc -fpic/-fPIC options generate broken code.
+diff -Naur gcc-4.8.2.orig/gcc/ChangeLog gcc-4.8.2/gcc/ChangeLog
+--- gcc-4.8.2.orig/gcc/ChangeLog	2013-10-16 09:20:05.000000000 +0200
++++ gcc-4.8.2/gcc/ChangeLog	2014-02-10 09:27:21.658530169 +0100
+@@ -1,3 +1,7 @@
++2013-12-07  Ralf Corsépius  <ralf.corsepius@rtems.org>
++
++	* config.gcc (microblaze*-*-rtems*): Add TARGET_BIG_ENDIAN_DEFAULT.
++
+ 2013-10-16  Release Manager
+ 
+ 	* GCC 4.8.2 released.
+@@ -1478,6 +1482,10 @@
+ 	with non-matche doffsettable memory constraint fro memory with
+ 	known offset.
+ 
++2013-05-02  Ralf Corsépius  <ralf.corsepius@rtems.org>
++
++	* config/i386/t-rtems: Remove soft-float multilib.
++
+ 2013-05-02  Ian Bolton  <ian.bolton@arm.com>
+ 
+ 	Backport from mainline
+diff -Naur gcc-4.8.2.orig/gcc/ChangeLog.rtems gcc-4.8.2/gcc/ChangeLog.rtems
+--- gcc-4.8.2.orig/gcc/ChangeLog.rtems	1970-01-01 01:00:00.000000000 +0100
++++ gcc-4.8.2/gcc/ChangeLog.rtems	2014-02-10 09:27:21.658530169 +0100
+@@ -0,0 +1,31 @@
++2012-10-26  Ralf Corsépius  <ralf.corsepius@rtems.org>
++
++	* config/v850/rtems.h: Undef WCHAR_TYPE_SIZE, WCHAR_TYPE.
++
++2012-01-10	Ralf Corsépius <ralf.corsepius@rtems.org>
++
++	* config/h8300/h8300.h: Apply DJ Delorie's patch from 
++	http://gcc.gnu.org/bugzilla/show_bug.cgi?id=48231#c1.
++
++2010-04-19	Ralf Corsépius <ralf.corsepius@rtems.org>
++
++	* ginclude/stddef.h: Define _MACHINE_ANSI_H_ if _X86_64_ANSI_H_ is 
++	defined (Used by amd64-*-netbsdelf5.*).
++
++2010-04-18	Ralf Corsépius <ralf.corsepius@rtems.org>
++
++	* ginclude/stddef.h: Define _MACHINE_ANSI_H_ if _I386_ANSI_H_ is 
++	defined (Used by i386-*-netbsdelf5.*).
++
++2009-11-04	Ralf Corsépius <ralf.corsepius@rtems.org>
++
++	* config/m32c/rtems.h, config/m68k/rtemself.h,
++	config/m68k/rtemself.h, config/sh/rtemself.h,
++	config/sparc/rtemself.h: Undef WCHAR_TYPE_SIZE, WCHAR_TYPE. 
++	(Resets WCHAR_TYPE's to defaults. Prevents broken GCC tm_files 
++	to interfere and cause wchar_t/wint_t incompatibilities).
++
++		Ralf Corsépius <ralf.corsepius@rtems.org>
++
++	* config/mips/elf.h: Remove NO_IMPLICIT_EXTERN_C.
++	
+diff -Naur gcc-4.8.2.orig/gcc/config/h8300/h8300.h gcc-4.8.2/gcc/config/h8300/h8300.h
+--- gcc-4.8.2.orig/gcc/config/h8300/h8300.h	2013-01-10 21:38:27.000000000 +0100
++++ gcc-4.8.2/gcc/config/h8300/h8300.h	2014-02-10 09:27:21.662530113 +0100
+@@ -127,6 +127,7 @@
+ #define INCOMING_FRAME_SP_OFFSET   (POINTER_SIZE / 8)
+ 
+ #define DWARF_CIE_DATA_ALIGNMENT	2
++#define DWARF2_ADDR_SIZE		4
+ 
+ /* Define this if addresses of constant functions
+    shouldn't be put through pseudo regs where they can be cse'd.
+diff -Naur gcc-4.8.2.orig/gcc/config/i386/cygwin.h gcc-4.8.2/gcc/config/i386/cygwin.h
+--- gcc-4.8.2.orig/gcc/config/i386/cygwin.h	2013-03-13 16:17:54.000000000 +0100
++++ gcc-4.8.2/gcc/config/i386/cygwin.h	2014-02-10 09:27:21.662530113 +0100
+@@ -18,11 +18,20 @@
+ along with GCC; see the file COPYING3.  If not see
+ <http://www.gnu.org/licenses/>.  */
+ 
+-#define EXTRA_OS_CPP_BUILTINS()  /* Nothing.  */
++#define EXTRA_OS_CPP_BUILTINS()					\
++  do								\
++    {								\
++      builtin_define ("__CYGWIN__");				\
++      if (!TARGET_64BIT)					\
++	builtin_define ("__CYGWIN32__");			\
++      builtin_define ("__unix__");				\
++      builtin_define ("__unix");				\
++    }								\
++  while (0)
+ 
+ #undef CPP_SPEC
+ #define CPP_SPEC "%(cpp_cpu) %{posix:-D_POSIX_SOURCE} \
+-  -D__CYGWIN32__ -D__CYGWIN__ %{!ansi:-Dunix} -D__unix__ -D__unix \
++  %{!ansi:-Dunix} %{pthread: } \
+   %{mwin32:-DWIN32 -D_WIN32 -D__WIN32 -D__WIN32__ %{!ansi:-DWINNT}} \
+   %{!nostdinc:%{!mno-win32:-idirafter ../include/w32api%s -idirafter ../../include/w32api%s}}\
+ "
+@@ -67,12 +76,14 @@
+ #undef LIB_SPEC
+ #define LIB_SPEC "\
+   %{pg:-lgmon} \
++  %{pthread: } \
+   -lcygwin \
+   %{mwindows:-lgdi32 -lcomdlg32} \
+   -ladvapi32 -lshell32 -luser32 -lkernel32"
+ 
+ /* To implement C++ function replacement we always wrap the cxx
+    malloc-like operators.  See N2800 #17.6.4.6 [replacement.functions] */
++#undef CXX_WRAP_SPEC_LIST
+ #define CXX_WRAP_SPEC_LIST " \
+   --wrap _Znwj \
+   --wrap _Znaj \
+@@ -110,7 +121,9 @@
+   %{shared: --shared} %{mdll:--dll} \
+   %{static:-Bstatic} %{!static:-Bdynamic} \
+   %{shared|mdll: --enable-auto-image-base -e __cygwin_dll_entry@12} \
+-  --dll-search-prefix=cyg -tsaware"
++  --dll-search-prefix=cyg \
++  %{rdynamic: --export-all-symbols} \
++  %{!shared: %{!mdll: --large-address-aware --tsaware}}"
+ 
+ /* Binutils does not handle weak symbols from dlls correctly.  For now,
+    do not use them unnecessarily in gthr-posix.h.  */
+diff -Naur gcc-4.8.2.orig/gcc/config/i386/cygwin.opt gcc-4.8.2/gcc/config/i386/cygwin.opt
+--- gcc-4.8.2.orig/gcc/config/i386/cygwin.opt	1970-01-01 01:00:00.000000000 +0100
++++ gcc-4.8.2/gcc/config/i386/cygwin.opt	2014-02-10 09:27:21.662530113 +0100
+@@ -0,0 +1,27 @@
++; Cygwin-specific options.
++
++; Copyright (C) 2005, 2007, 2009, 2010, 2011 Free Software Foundation, Inc.
++;
++; This file is part of GCC.
++;
++; GCC is free software; you can redistribute it and/or modify it under
++; the terms of the GNU General Public License as published by the Free
++; Software Foundation; either version 3, or (at your option) any later
++; version.
++;
++; GCC is distributed in the hope that it will be useful, but WITHOUT ANY
++; WARRANTY; without even the implied warranty of MERCHANTABILITY or
++; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++; for more details.
++;
++; You should have received a copy of the GNU General Public License
++; along with GCC; see the file COPYING3.  If not see
++; <http://www.gnu.org/licenses/>.
++
++pthread
++Driver
++
++rdynamic
++Driver
++
++; Retain blank line above
+diff -Naur gcc-4.8.2.orig/gcc/config/i386/cygwin-stdint.h gcc-4.8.2/gcc/config/i386/cygwin-stdint.h
+--- gcc-4.8.2.orig/gcc/config/i386/cygwin-stdint.h	2013-01-10 21:38:27.000000000 +0100
++++ gcc-4.8.2/gcc/config/i386/cygwin-stdint.h	2014-02-10 09:27:21.662530113 +0100
+@@ -24,39 +24,71 @@
+ #define INT8_TYPE "signed char"
+ #define INT16_TYPE "short int"
+ #define INT32_TYPE "int"
++#ifdef __x86_64__
++#define INT64_TYPE "long int"
++#else
+ #define INT64_TYPE "long long int"
++#endif
+ 
+ #define UINT8_TYPE "unsigned char"
+ #define UINT16_TYPE "short unsigned int"
+ #define UINT32_TYPE "unsigned int"
++#ifdef __x86_64__
++#define UINT64_TYPE "long unsigned int"
++#else
+ #define UINT64_TYPE "long long unsigned int"
++#endif
+ 
+ /* Minimum-width integer types */
+ 
+ #define INT_LEAST8_TYPE "signed char"
+ #define INT_LEAST16_TYPE "short int"
+ #define INT_LEAST32_TYPE "int"
++#ifdef __x86_64__
++#define INT_LEAST64_TYPE "long int"
++#else
+ #define INT_LEAST64_TYPE "long long int"
++#endif
+ 
+ #define UINT_LEAST8_TYPE "unsigned char"
+ #define UINT_LEAST16_TYPE "short unsigned int"
+ #define UINT_LEAST32_TYPE "unsigned int"
++#ifdef __x86_64__
++#define UINT_LEAST64_TYPE "long unsigned int"
++#else
+ #define UINT_LEAST64_TYPE "long long unsigned int"
++#endif
+ 
+ /* Fastest minimum-width integer types */
+ 
+ #define INT_FAST8_TYPE "signed char"
++#ifdef __x86_64__
++#define INT_FAST16_TYPE "long int"
++#define INT_FAST32_TYPE "long int"
++#define INT_FAST64_TYPE "long int"
++#else
+ #define INT_FAST16_TYPE "int"
+ #define INT_FAST32_TYPE "int"
+ #define INT_FAST64_TYPE "long long int"
++#endif
+ 
+ #define UINT_FAST8_TYPE "unsigned char"
++#ifdef __x86_64__
++#define UINT_FAST16_TYPE "long unsigned int"
++#define UINT_FAST32_TYPE "long unsigned int"
++#define UINT_FAST64_TYPE "long unsigned int"
++#else
+ #define UINT_FAST16_TYPE "unsigned int"
+ #define UINT_FAST32_TYPE "unsigned int"
+ #define UINT_FAST64_TYPE "long long unsigned int"
++#endif
+ 
+ /* Integer types capable of holding object pointers */
+ 
++#ifdef __x86_64__
++#define INTPTR_TYPE "long int"
++#define UINTPTR_TYPE "long unsigned int"
++#else
+ #define INTPTR_TYPE "int"
+ #define UINTPTR_TYPE "unsigned int"
+-
++#endif
+diff -Naur gcc-4.8.2.orig/gcc/config/i386/cygwin-w64.h gcc-4.8.2/gcc/config/i386/cygwin-w64.h
+--- gcc-4.8.2.orig/gcc/config/i386/cygwin-w64.h	1970-01-01 01:00:00.000000000 +0100
++++ gcc-4.8.2/gcc/config/i386/cygwin-w64.h	2014-02-10 09:27:21.662530113 +0100
+@@ -0,0 +1,84 @@
++/* Operating system specific defines to be used when targeting GCC for
++   hosting on Windows 32/64 via Cygwin runtime, using GNU tools and
++   the Windows API Library.
++   Copyright (C) 2013 Free Software Foundation, Inc.
++
++This file is part of GCC.
++
++GCC is free software; you can redistribute it and/or modify
++it under the terms of the GNU General Public License as published by
++the Free Software Foundation; either version 3, or (at your option)
++any later version.
++
++GCC is distributed in the hope that it will be useful,
++but WITHOUT ANY WARRANTY; without even the implied warranty of
++MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++GNU General Public License for more details.
++
++You should have received a copy of the GNU General Public License
++along with GCC; see the file COPYING3.  If not see
++<http://www.gnu.org/licenses/>.  */
++
++/* Enable multilib.  */
++
++#undef ASM_SPEC
++#define ASM_SPEC "%{m32:--32} %{m64:--64}"
++
++/* To implement C++ function replacement we always wrap the cxx
++   malloc-like operators.  See N2800 #17.6.4.6 [replacement.functions] */
++#undef CXX_WRAP_SPEC_LIST
++#define CXX_WRAP_SPEC_LIST " \
++  --wrap _Znwm \
++  --wrap _Znam \
++  --wrap _ZdlPv \
++  --wrap _ZdaPv \
++  --wrap _ZnwmRKSt9nothrow_t \
++  --wrap _ZnamRKSt9nothrow_t \
++  --wrap _ZdlPvRKSt9nothrow_t \
++  --wrap _ZdaPvRKSt9nothrow_t \
++"
++
++#undef SPEC_32
++#undef SPEC_64
++#define SPEC_32 "m32"
++#define SPEC_64 "!m32"
++
++#undef SUB_LINK_ENTRY32
++#undef SUB_LINK_ENTRY64
++#define SUB_LINK_ENTRY32 "-e __cygwin_dll_entry@12"
++#define SUB_LINK_ENTRY64 "-e _cygwin_dll_entry"
++
++#undef SUB_LINK_SPEC
++#undef SUB_LINK_ENTRY
++#define SUB_LINK_SPEC "%{" SPEC_64 ":-m i386pep} %{" SPEC_32 ":-m i386pe}"
++#define SUB_LINK_ENTRY "%{" SPEC_64 ":" SUB_LINK_ENTRY64 "} %{" SPEC_32 ":" SUB_LINK_ENTRY32 "}"
++
++#undef MULTILIB_DEFAULTS
++#define MULTILIB_DEFAULTS { "m64" }
++
++#undef LINK_SPEC
++#define LINK_SPEC SUB_LINK_SPEC "\
++  %{mwindows:--subsystem windows} \
++  %{mconsole:--subsystem console} \
++  " CXX_WRAP_SPEC " \
++  %{shared: %{mdll: %eshared and mdll are not compatible}} \
++  %{shared: --shared} %{mdll:--dll} \
++  %{static:-Bstatic} %{!static:-Bdynamic} \
++  %{shared|mdll: " SUB_LINK_ENTRY " --enable-auto-image-base} \
++  %(shared_libgcc_undefs) \
++  --dll-search-prefix=cyg \
++  %{rdynamic: --export-all-symbols} \
++  %{!shared: %{!mdll: %{" SPEC_32 ":--large-address-aware} --tsaware}}"
++
++/* Cygwin64 will have a 64-bit long type. */
++#undef LONG_TYPE_SIZE
++#define LONG_TYPE_SIZE (TARGET_64BIT ? 64 : 32)
++
++/* Override default "long long unsigned int" from cygming.h. */
++#undef SIZE_TYPE
++#define SIZE_TYPE (TARGET_64BIT ? "long unsigned int" : "unsigned int")
++#undef PTRDIFF_TYPE
++#define PTRDIFF_TYPE (TARGET_64BIT ? "long int" : "int")
++
++#undef LIBGCC_SONAME
++#define LIBGCC_SONAME "cyggcc_s-seh-1.dll"
+diff -Naur gcc-4.8.2.orig/gcc/config/i386/t-cygwin-w64 gcc-4.8.2/gcc/config/i386/t-cygwin-w64
+--- gcc-4.8.2.orig/gcc/config/i386/t-cygwin-w64	1970-01-01 01:00:00.000000000 +0100
++++ gcc-4.8.2/gcc/config/i386/t-cygwin-w64	2014-02-10 09:27:21.662530113 +0100
+@@ -0,0 +1,3 @@
++MULTILIB_OPTIONS = m64/m32
++MULTILIB_DIRNAMES = 64
++MULTILIB_OSDIRNAMES = ../lib ../lib32
+diff -Naur gcc-4.8.2.orig/gcc/config/i386/t-rtems gcc-4.8.2/gcc/config/i386/t-rtems
+--- gcc-4.8.2.orig/gcc/config/i386/t-rtems	2013-01-10 21:38:27.000000000 +0100
++++ gcc-4.8.2/gcc/config/i386/t-rtems	2014-02-10 09:27:21.662530113 +0100
+@@ -17,11 +17,6 @@
+ # <http://www.gnu.org/licenses/>.
+ #
+ 
+-MULTILIB_OPTIONS = mtune=i486/mtune=pentium/mtune=pentiumpro \
+-msoft-float
+-MULTILIB_DIRNAMES= m486 mpentium mpentiumpro soft-float
+-MULTILIB_MATCHES = msoft-float=mno-m80387
+-MULTILIB_MATCHES += mtune?pentium=mtune?k6 mtune?pentiumpro=mtune?mathlon
+-MULTILIB_EXCEPTIONS = \
+-mtune=pentium/*msoft-float* \
+-mtune=pentiumpro/*msoft-float*
++MULTILIB_OPTIONS = mtune=i486/mtune=pentium/mtune=pentiumpro
++MULTILIB_DIRNAMES= m486 mpentium mpentiumpro
++MULTILIB_MATCHES += mtune?pentium=mtune?k6 mtune?pentiumpro=mtune?athlon
+diff -Naur gcc-4.8.2.orig/gcc/config/m32c/rtems.h gcc-4.8.2/gcc/config/m32c/rtems.h
+--- gcc-4.8.2.orig/gcc/config/m32c/rtems.h	2013-01-10 21:38:27.000000000 +0100
++++ gcc-4.8.2/gcc/config/m32c/rtems.h	2014-02-10 09:27:21.662530113 +0100
+@@ -29,5 +29,9 @@
+     }						\
+   while (0)
+ 
+-/* Use the default */
++/* Use the defaults */
+ #undef LINK_GCC_C_SEQUENCE_SPEC
++
++#undef WCHAR_TYPE
++
++#undef WCHAR_TYPE_SIZE
+diff -Naur gcc-4.8.2.orig/gcc/config/m68k/rtemself.h gcc-4.8.2/gcc/config/m68k/rtemself.h
+--- gcc-4.8.2.orig/gcc/config/m68k/rtemself.h	2013-01-10 21:38:27.000000000 +0100
++++ gcc-4.8.2/gcc/config/m68k/rtemself.h	2014-02-10 09:27:21.663530098 +0100
+@@ -31,3 +31,8 @@
+ 	builtin_assert ("system=rtems");	\
+     }						\
+   while (0)
++
++/* Use the defaults */
++#undef WCHAR_TYPE
++
++#undef WCHAR_TYPE_SIZE
+diff -Naur gcc-4.8.2.orig/gcc/config/mips/elf.h gcc-4.8.2/gcc/config/mips/elf.h
+--- gcc-4.8.2.orig/gcc/config/mips/elf.h	2013-01-10 21:38:27.000000000 +0100
++++ gcc-4.8.2/gcc/config/mips/elf.h	2014-02-10 09:27:21.663530098 +0100
+@@ -46,5 +46,3 @@
+ 
+ #undef  ENDFILE_SPEC
+ #define ENDFILE_SPEC "crtend%O%s crtn%O%s"
+-
+-#define NO_IMPLICIT_EXTERN_C 1
+diff -Naur gcc-4.8.2.orig/gcc/config/rs6000/rtems.h gcc-4.8.2/gcc/config/rs6000/rtems.h
+--- gcc-4.8.2.orig/gcc/config/rs6000/rtems.h	2013-07-31 14:59:09.000000000 +0200
++++ gcc-4.8.2/gcc/config/rs6000/rtems.h	2014-02-10 09:27:21.663530098 +0100
+@@ -57,3 +57,7 @@
+ #undef  SUBSUBTARGET_EXTRA_SPECS
+ #define SUBSUBTARGET_EXTRA_SPECS \
+   { "cpp_os_rtems",		CPP_OS_RTEMS_SPEC }
++
++#undef WCHAR_TYPE
++
++#undef WCHAR_TYPE_SIZE
+diff -Naur gcc-4.8.2.orig/gcc/config/sh/rtemself.h gcc-4.8.2/gcc/config/sh/rtemself.h
+--- gcc-4.8.2.orig/gcc/config/sh/rtemself.h	2013-01-10 21:38:27.000000000 +0100
++++ gcc-4.8.2/gcc/config/sh/rtemself.h	2014-02-10 09:27:21.663530098 +0100
+@@ -24,3 +24,8 @@
+   builtin_define( "__rtems__" );		\
+   builtin_assert( "system=rtems" );		\
+ } while (0)
++
++/* Use the defaults */
++#undef WCHAR_TYPE
++
++#undef WCHAR_TYPE_SIZE
+diff -Naur gcc-4.8.2.orig/gcc/config/sparc/rtemself.h gcc-4.8.2/gcc/config/sparc/rtemself.h
+--- gcc-4.8.2.orig/gcc/config/sparc/rtemself.h	2013-01-10 21:38:27.000000000 +0100
++++ gcc-4.8.2/gcc/config/sparc/rtemself.h	2014-02-10 09:27:21.663530098 +0100
+@@ -29,5 +29,9 @@
+     }						\
+   while (0)
+ 
+-/* Use the default */
++/* Use the defaults */
+ #undef LINK_GCC_C_SEQUENCE_SPEC
++
++#undef WCHAR_TYPE
++
++#undef WCHAR_TYPE_SIZE
+diff -Naur gcc-4.8.2.orig/gcc/config/v850/rtems.h gcc-4.8.2/gcc/config/v850/rtems.h
+--- gcc-4.8.2.orig/gcc/config/v850/rtems.h	2013-01-10 21:38:27.000000000 +0100
++++ gcc-4.8.2/gcc/config/v850/rtems.h	2014-02-10 09:27:21.663530098 +0100
+@@ -34,3 +34,8 @@
+ %{!mv850es:%{!mv850e1:%{mv*:-mv%*}} \
+ %{m8byte-align:-m8byte-align} \
+ %{mgcc-abi:-mgcc-abi}}"
++
++/* Use the defaults */
++#undef WCHAR_TYPE
++
++#undef WCHAR_TYPE_SIZE
+diff -Naur gcc-4.8.2.orig/gcc/config.build gcc-4.8.2/gcc/config.build
+--- gcc-4.8.2.orig/gcc/config.build	2013-01-10 21:38:27.000000000 +0100
++++ gcc-4.8.2/gcc/config.build	2014-02-10 09:27:21.660530141 +0100
+@@ -60,7 +60,7 @@
+     # IBM 360/370/390 Architecture
+     build_xm_defines='FATAL_EXIT_CODE=12'
+     ;;
+-  i[34567]86-*-cygwin* )
++  i[34567]86-*-cygwin* | x86_64-*-cygwin* )
+     build_xm_file=i386/xm-cygwin.h
+     build_exeext=.exe
+     ;;
+diff -Naur gcc-4.8.2.orig/gcc/config.gcc gcc-4.8.2/gcc/config.gcc
+--- gcc-4.8.2.orig/gcc/config.gcc	2013-10-03 02:47:24.000000000 +0200
++++ gcc-4.8.2/gcc/config.gcc	2014-02-10 09:27:21.661530126 +0100
+@@ -1444,7 +1444,22 @@
+ 	xm_file=i386/xm-cygwin.h
+ 	tmake_file="${tmake_file} i386/t-cygming t-slibgcc"
+ 	target_gtfiles="\$(srcdir)/config/i386/winnt.c"
+-	extra_options="${extra_options} i386/cygming.opt"
++	extra_options="${extra_options} i386/cygming.opt i386/cygwin.opt"
++	extra_objs="winnt.o winnt-stubs.o"
++	c_target_objs="${c_target_objs} msformat-c.o"
++	cxx_target_objs="${cxx_target_objs} winnt-cxx.o msformat-c.o"
++	if test x$enable_threads = xyes; then
++		thread_file='posix'
++	fi
++	use_gcc_stdint=wrap
++	;;
++x86_64-*-cygwin*)
++	need_64bit_isa=yes
++	tm_file="${tm_file} i386/unix.h i386/bsd.h i386/gas.h dbxcoff.h i386/cygming.h i386/cygwin.h i386/cygwin-w64.h i386/cygwin-stdint.h"
++	xm_file=i386/xm-cygwin.h
++	tmake_file="${tmake_file} i386/t-cygming t-slibgcc i386/t-cygwin-w64"
++	target_gtfiles="\$(srcdir)/config/i386/winnt.c"
++	extra_options="${extra_options} i386/cygming.opt i386/cygwin.opt"
+ 	extra_objs="winnt.o winnt-stubs.o"
+ 	c_target_objs="${c_target_objs} msformat-c.o"
+ 	cxx_target_objs="${cxx_target_objs} winnt-cxx.o msformat-c.o"
+@@ -1761,6 +1776,14 @@
+ 	tmake_file="${tmake_file} microblaze/t-microblaze-linux"
+ 	;;
+ microblaze*-*-rtems*)
++	case $target in
++		microblazeel-*)
++			tm_defines="${tm_defines} TARGET_BIG_ENDIAN_DEFAULT=0"
++			;;
++		microblaze-*)
++			tm_defines="${tm_defines} TARGET_BIG_ENDIAN_DEFAULT=4321"
++			;;
++	esac
+ 	tm_file="${tm_file} dbxelf.h"
+ 	tm_file="${tm_file} microblaze/rtems.h rtems.h newlib-stdint.h"
+ 	c_target_objs="${c_target_objs} microblaze-c.o"
+@@ -3707,7 +3730,9 @@
+ 		;;
+ 	i[34567]86-*-solaris2* | x86_64-*-solaris2.1[0-9]*)
+ 		;;
+-	i[34567]86-*-cygwin* | i[34567]86-*-mingw* | x86_64-*-mingw*)
++	i[34567]86-*-cygwin* | x86_64-*-cygwin*)
++		;;
++	i[34567]86-*-mingw* | x86_64-*-mingw*)
+ 		;;
+ 	i[34567]86-*-freebsd* | x86_64-*-freebsd*)
+ 		;;
+diff -Naur gcc-4.8.2.orig/gcc/config.host gcc-4.8.2/gcc/config.host
+--- gcc-4.8.2.orig/gcc/config.host	2013-01-10 21:38:27.000000000 +0100
++++ gcc-4.8.2/gcc/config.host	2014-02-10 09:27:21.662530113 +0100
+@@ -214,7 +214,7 @@
+         ;;
+     esac
+     ;;
+-  i[34567]86-*-cygwin*)
++  i[34567]86-*-cygwin* | x86_64-*-cygwin*)
+     host_xm_file=i386/xm-cygwin.h
+     out_host_hook_obj=host-cygwin.o
+     host_xmake_file="${host_xmake_file} i386/x-cygwin"
+diff -Naur gcc-4.8.2.orig/gcc/configure gcc-4.8.2/gcc/configure
+--- gcc-4.8.2.orig/gcc/configure	2013-06-19 03:18:38.000000000 +0200
++++ gcc-4.8.2/gcc/configure	2014-02-10 09:27:21.666530056 +0100
+@@ -4893,7 +4893,9 @@
+     hppa*64*-*-hpux*)
+ 	# PIC is the default for 64-bit PA HP-UX.
+ 	;;
+-    i[34567]86-*-cygwin* | i[34567]86-*-mingw* | x86_64-*-mingw*)
++    i[34567]86-*-cygwin* | x86_64-*-cygwin*)
++	;;
++    i[34567]86-*-mingw* | x86_64-*-mingw*)
+ 	;;
+     i[34567]86-*-interix[3-9]*)
+ 	# Interix 3.x gcc -fpic/-fPIC options generate broken code.
+@@ -24273,7 +24275,7 @@
+ 	# wrappers to aid in interposing and redirecting operators new, delete,
+ 	# etc., as per n2800 #17.6.4.6 [replacement.functions].  Check if we
+ 	# are configuring for a version of Cygwin that exports the wrappers.
+-	if test x$host = x$target; then
++	if test x$host = x$target && test x$host_cpu = xi686; then
+ 	  ac_fn_c_check_func "$LINENO" "__wrap__Znaj" "ac_cv_func___wrap__Znaj"
+ if test "x$ac_cv_func___wrap__Znaj" = x""yes; then :
+   gcc_ac_cygwin_dll_wrappers=yes
+diff -Naur gcc-4.8.2.orig/gcc/configure.ac gcc-4.8.2/gcc/configure.ac
+--- gcc-4.8.2.orig/gcc/configure.ac	2013-06-19 03:18:38.000000000 +0200
++++ gcc-4.8.2/gcc/configure.ac	2014-02-10 09:27:21.666530056 +0100
+@@ -3623,7 +3623,7 @@
+ 	# wrappers to aid in interposing and redirecting operators new, delete,
+ 	# etc., as per n2800 #17.6.4.6 [replacement.functions].  Check if we
+ 	# are configuring for a version of Cygwin that exports the wrappers.
+-	if test x$host = x$target; then
++	if test x$host = x$target && test x$host_cpu = xi686; then
+ 	  AC_CHECK_FUNC([__wrap__Znaj],[gcc_ac_cygwin_dll_wrappers=yes],[gcc_ac_cygwin_dll_wrappers=no])
+ 	else
+ 	  # Can't check presence of libc functions during cross-compile, so
+diff -Naur gcc-4.8.2.orig/gcc/ginclude/stddef.h gcc-4.8.2/gcc/ginclude/stddef.h
+--- gcc-4.8.2.orig/gcc/ginclude/stddef.h	2013-01-10 21:38:27.000000000 +0100
++++ gcc-4.8.2/gcc/ginclude/stddef.h	2014-02-10 09:27:21.666530056 +0100
+@@ -50,7 +50,13 @@
+    one less case to deal with in the following.  */
+ #if defined (__BSD_NET2__) || defined (____386BSD____) || (defined (__FreeBSD__) && (__FreeBSD__ < 5)) || defined(__NetBSD__)
+ #include <machine/ansi.h>
++#if !defined(_MACHINE_ANSI_H_)
++#if defined(_I386_ANSI_H_) || defined(_X86_64_ANSI_H_)
++#define _MACHINE_ANSI_H_
+ #endif
++#endif
++#endif
++
+ /* On FreeBSD 5, machine/ansi.h does not exist anymore... */
+ #if defined (__FreeBSD__) && (__FreeBSD__ >= 5)
+ #include <sys/_types.h>
+diff -Naur gcc-4.8.2.orig/libada/configure gcc-4.8.2/libada/configure
+--- gcc-4.8.2.orig/libada/configure	2013-10-16 09:27:58.000000000 +0200
++++ gcc-4.8.2/libada/configure	2014-02-10 09:27:21.667530042 +0100
+@@ -2834,7 +2834,9 @@
+     hppa*64*-*-hpux*)
+ 	# PIC is the default for 64-bit PA HP-UX.
+ 	;;
+-    i[34567]86-*-cygwin* | i[34567]86-*-mingw* | x86_64-*-mingw*)
++    i[34567]86-*-cygwin* | x86_64-*-cygwin*)
++	;;
++    i[34567]86-*-mingw* | x86_64-*-mingw*)
+ 	;;
+     i[34567]86-*-interix[3-9]*)
+ 	# Interix 3.x gcc -fpic/-fPIC options generate broken code.
+diff -Naur gcc-4.8.2.orig/libgcc/ChangeLog gcc-4.8.2/libgcc/ChangeLog
+--- gcc-4.8.2.orig/libgcc/ChangeLog	2013-10-16 09:18:32.000000000 +0200
++++ gcc-4.8.2/libgcc/ChangeLog	2014-02-10 09:27:21.667530042 +0100
+@@ -1,3 +1,7 @@
++2013-12-06  Ralf Corsépius  <ralf.corsepius@rtems.org>
++
++	* config.host (microblaze-*-rtems*): New.
++
+ 2013-10-16  Release Manager
+ 
+ 	* GCC 4.8.2 released.
+diff -Naur gcc-4.8.2.orig/libgcc/config.host gcc-4.8.2/libgcc/config.host
+--- gcc-4.8.2.orig/libgcc/config.host	2013-07-09 23:35:57.000000000 +0200
++++ gcc-4.8.2/libgcc/config.host	2014-02-10 09:27:21.667530042 +0100
+@@ -718,6 +718,10 @@
+ 	tmake_file="${tmake_file} microblaze/t-microblaze t-fdpbit"
+ 	extra_parts="$extra_parts crtbeginS.o crtendS.o crtbeginT.o crti.o crtn.o"
+ 	;;
++microblaze*-*-rtems*)
++	tmake_file="${tmake_file} microblaze/t-microblaze t-fdpbit"
++	extra_parts="$extra_parts crtbeginS.o crtendS.o crtbeginT.o crti.o crtn.o"
++	;;
+ mips*-*-netbsd*)			# NetBSD/mips, either endian.
+ 	;;
+ mips*-*-linux*)				# Linux MIPS, either endian.
+diff -Naur gcc-4.8.2.orig/libgcc/configure gcc-4.8.2/libgcc/configure
+--- gcc-4.8.2.orig/libgcc/configure	2012-11-05 00:08:42.000000000 +0100
++++ gcc-4.8.2/libgcc/configure	2014-02-10 09:27:21.668530027 +0100
+@@ -2228,7 +2228,9 @@
+     hppa*64*-*-hpux*)
+ 	# PIC is the default for 64-bit PA HP-UX.
+ 	;;
+-    i[34567]86-*-cygwin* | i[34567]86-*-mingw* | x86_64-*-mingw*)
++    i[34567]86-*-cygwin* | x86_64-*-cygwin*)
++	;;
++    i[34567]86-*-mingw* | x86_64-*-mingw*)
+ 	;;
+     i[34567]86-*-interix[3-9]*)
+ 	# Interix 3.x gcc -fpic/-fPIC options generate broken code.
+diff -Naur gcc-4.8.2.orig/libiberty/configure gcc-4.8.2/libiberty/configure
+--- gcc-4.8.2.orig/libiberty/configure	2012-09-18 18:03:01.000000000 +0200
++++ gcc-4.8.2/libiberty/configure	2014-02-10 09:27:21.669530013 +0100
+@@ -4865,7 +4865,9 @@
+     hppa*64*-*-hpux*)
+ 	# PIC is the default for 64-bit PA HP-UX.
+ 	;;
+-    i[34567]86-*-cygwin* | i[34567]86-*-mingw* | x86_64-*-mingw*)
++    i[34567]86-*-cygwin* | x86_64-*-cygwin*)
++	;;
++    i[34567]86-*-mingw* | x86_64-*-mingw*)
+ 	;;
+     i[34567]86-*-interix[3-9]*)
+ 	# Interix 3.x gcc -fpic/-fPIC options generate broken code.
