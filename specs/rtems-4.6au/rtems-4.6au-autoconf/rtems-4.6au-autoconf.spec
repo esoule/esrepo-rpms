@@ -3,7 +3,7 @@
 # 	http://www.rtems.org/bugzilla
 #
 
-%define _prefix                 /opt/rtems-4.11
+%define _prefix                 /opt/rtems-4.6au
 %define _exec_prefix            %{_prefix}
 %define _bindir                 %{_exec_prefix}/bin
 %define _sbindir                %{_exec_prefix}/sbin
@@ -15,8 +15,8 @@
 %define _localstatedir          %{_prefix}/var
 %define _includedir             %{_prefix}/include
 %define _libdir                 %{_exec_prefix}/%{_lib}
-%define _mandir                 %{_datarootdir}/man
-%define _infodir                %{_datarootdir}/info
+%define _mandir                 %{_prefix}/man
+%define _infodir                %{_prefix}/info
 %define _localedir              %{_datarootdir}/locale
 
 %ifos cygwin cygwin32 mingw mingw32
@@ -46,10 +46,10 @@
 %endif
 
 %{?!el5:%global _with_noarch_subpackages 1}
-%define srcvers	2.69
-%define rpmvers %{expand:%(echo "2.69" | tr - _ )}
+%define srcvers	2.59
+%define rpmvers %{expand:%(echo "2.59" | tr - _ )}
 
-%define name			rtems-4.11-autoconf
+%define name			rtems-4.6au-autoconf
 
 # --with alltests	enable all tests (default: off)
 %bcond_with		alltests
@@ -62,7 +62,7 @@ License:	GPL
 URL:		http://www.gnu.org/software/autoconf
 Group:		Development/Tools
 Version:	%{rpmvers}
-Release:	6%{?dist}
+Release:	6.1.1%{?dist}
 Summary:	Tool for automatically generating GNU style Makefile.in's
 
 BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
@@ -75,7 +75,7 @@ Requires:     	m4 gawk
 Requires(post):		/sbin/install-info
 Requires(preun):	/sbin/install-info
 
-Source0: ftp://ftp.gnu.org/gnu/autoconf/autoconf-%{srcvers}.tar.%{?el5:gz}%{!?el5:xz}
+Source0: ftp://ftp.gnu.org/gnu/autoconf/autoconf-%{srcvers}.tar.gz
 
 
 
@@ -219,5 +219,10 @@ fi
 %exclude %{_datadir}/emacs/site-lisp
 
 %changelog
+* Wed Aug 06 2014 Evgueni Souleimanov <esoule@100500.ca> - 2.59-6.1.1
+- Build autoconf 2.59 for developing with rtems-4.6 (rtems-4.6au)
+- place manpages to /opt/rtems-4.6au/man
+- place info pages to /opt/rtems-4.6au/info
+
 * Sun Mar 17 2013 RTEMS Project - 2.69-6
 - Original Package, as provided by RTEMS Project for RTEMS 4.11
