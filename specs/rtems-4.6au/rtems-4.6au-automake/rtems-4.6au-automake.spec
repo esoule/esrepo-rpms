@@ -3,7 +3,7 @@
 # 	http://www.rtems.org/bugzilla
 #
 
-%define _prefix                 /opt/rtems-4.11
+%define _prefix                 /opt/rtems-4.6au
 %define _exec_prefix            %{_prefix}
 %define _bindir                 %{_exec_prefix}/bin
 %define _sbindir                %{_exec_prefix}/sbin
@@ -15,8 +15,8 @@
 %define _localstatedir          %{_prefix}/var
 %define _includedir             %{_prefix}/include
 %define _libdir                 %{_exec_prefix}/%{_lib}
-%define _mandir                 %{_datarootdir}/man
-%define _infodir                %{_datarootdir}/info
+%define _mandir                 %{_prefix}/man
+%define _infodir                %{_prefix}/info
 %define _localedir              %{_datarootdir}/locale
 
 %ifos cygwin cygwin32 mingw mingw32
@@ -46,12 +46,12 @@
 %endif
 
 %{?!el5:%global _with_noarch_subpackages 1}
-%global rpmvers 1.13.4
-%global srcvers	1.13.4
-%global amvers  1.13
+%global rpmvers 1.7.2
+%global srcvers	1.7.2
+%global amvers  1.7
 
-%define name			rtems-4.11-automake
-%define requirements		rtems-4.11-autoconf >= 2.65
+%define name			rtems-4.6au-automake
+%define requirements		rtems-4.6au-autoconf >= 2.59
 
 # --with check          enable checks (default: off)
 %bcond_with             check
@@ -61,12 +61,12 @@ URL:		http://www.gnu.org/software/automake
 License:	GPL
 Group:		Development/Tools
 Version:	%{rpmvers}
-Release:	2%{?dist}
+Release:	2.1.1%{?dist}
 Summary:	Tool for automatically generating GNU style Makefile.in's
 
 %{?el5:BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)}
 BuildArch:	noarch
-BuildRequires:  %{requirements} perl
+BuildRequires:  %{requirements} perl help2man
 Requires:     	%{requirements}
 Requires(post):	/sbin/install-info
 Requires(preun):/sbin/install-info
@@ -75,7 +75,7 @@ Requires(preun):/sbin/install-info
 Requires:   perl(Thread::Queue)
 Requires:   perl(threads)   
 
-Source0: ftp://ftp.gnu.org/gnu/automake/automake-%{srcvers}.tar.%{?el5:gz}%{!?el5:xz}
+Source0: ftp://ftp.gnu.org/gnu/automake/automake-%{srcvers}.tar.gz
 
 
 # rpm-4.9 filter
@@ -132,7 +132,6 @@ esac
 # outdated versions bundled with rpm.
 ./configure -C --prefix=%{_prefix} --infodir=%{_infodir} --mandir=%{_mandir} \
   --bindir=%{_bindir} --datadir=%{_datadir} \
-  --docdir=%{_datadir}/automake-%{amvers}/doc \
   --disable-silent-rules
 make
 
@@ -146,6 +145,15 @@ make check
 %install
 %{?el5:rm -rf "$RPM_BUILD_ROOT"}
 make DESTDIR=${RPM_BUILD_ROOT} install
+
+install -m 755 -d $RPM_BUILD_ROOT/%{_mandir}/man1
+for i in $RPM_BUILD_ROOT%{_bindir}/aclocal \
+  $RPM_BUILD_ROOT%{_bindir}/automake ; 
+do
+  perllibdir=$RPM_BUILD_ROOT/%{_datadir}/automake-%{amvers} \
+  help2man $i > `basename $i`.1
+  install -m 644 `basename $i`.1 $RPM_BUILD_ROOT/%{_mandir}/man1
+done
 
 mkdir -p $RPM_BUILD_ROOT%{_datadir}/aclocal
 echo "/usr/share/aclocal" > $RPM_BUILD_ROOT%{_datadir}/aclocal/dirlist
@@ -210,6 +218,11 @@ fi
 %{_datadir}/automake-%{amvers}
 
 %changelog
+* Wed Aug 06 2014 Evgueni Souleimanov <esoule@100500.ca> - 1.7.2-2.1.1
+- build automake 1.7.2 for developing with rtems-4.6 (rtems-4.6au)
+- place manpages to /opt/rtems-4.6au/man
+- place info pages to /opt/rtems-4.6au/info
+
 * Sun Oct 13 2013 RTEMS Project - 1.13.4-2
 - Original Package, as provided by RTEMS Project for RTEMS 4.11
 
