@@ -46,15 +46,15 @@
 %endif
 
 %{?!el5:%global _with_noarch_subpackages 1}
-%define binutils_pkgvers 2.20.1
-%define binutils_version 2.20.1
-%define binutils_rpmvers %{expand:%(echo "2.20.1" | tr - _ )}
+%define binutils_pkgvers 2.24
+%define binutils_version 2.24
+%define binutils_rpmvers %{expand:%(echo "2.24" | tr - _ )}
 
 Name:		rtems-4.6ng10-powerpc-rtems-binutils
 Summary:	Binutils for target powerpc-rtems
 Group:		Development/Tools
 Version:	%{binutils_rpmvers}
-Release:	9.1.1%{?dist}
+Release:	9.1.2%{?dist}
 License:	GPL/LGPL
 URL: 		http://sourceware.org/binutils
 %{?el5:BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)}
@@ -75,7 +75,9 @@ BuildRequires:	bison
 Requires:	rtems-4.6ng10-binutils-common
 
 Source0: ftp://ftp.gnu.org/gnu/binutils/binutils-%{binutils_pkgvers}.tar.bz2
-Patch0:  ftp://ftp.rtems.org/pub/rtems/SOURCES/4.10/binutils-2.20.1-rtems4.10-20140214.diff
+%if "%{binutils_version}" == "2.23.2"
+Patch0:  ftp://ftp.rtems.org/pub/rtems/SOURCES/4.11/binutils-2.23.2-rtems4.11-20130326.diff
+%endif
 
 %description
 Cross binutils for target powerpc-rtems
@@ -268,6 +270,9 @@ fi
 %dir %{_prefix}/share/locale
 
 %changelog
+* Sat Aug 09 2014 Evgueni Souleimanov <esoule@100500.ca> - 2.24-9.1.2
+- update to binutils 2.24
+
 * Thu Aug 07 2014 Evgueni Souleimanov <esoule@100500.ca> - 2.20.1-9.1.1
 - build binutils 2.20.1 for rtems-4.6 (rtems-4.6ng10)
 - place manpages to /opt/rtems-4.6ng10/man

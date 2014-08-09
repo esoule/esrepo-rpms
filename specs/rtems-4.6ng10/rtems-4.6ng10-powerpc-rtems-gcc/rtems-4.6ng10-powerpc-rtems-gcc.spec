@@ -50,11 +50,11 @@
 %define gcc_pkgvers 4.4.7
 %define gcc_version 4.4.7
 %define gcc_rpmvers %{expand:%(echo "4.4.7" | tr - _ )}
-%define gcc_rpmrelease 6.1.1
+%define gcc_rpmrelease 6.1.2
 
 %define newlib_pkgvers		1.11.0
 %define newlib_version		1.11.0
-%define newlib_rpmrelease	34.1.1
+%define newlib_rpmrelease	34.1.2
 
 Name:         	rtems-4.6ng10-powerpc-rtems-gcc
 Summary:      	powerpc-rtems gcc
@@ -914,6 +914,9 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
+* Thu Aug 07 2014 Evgueni Souleimanov <esoule@100500.ca> - 4.4.7-6.1.2
+- rebuild with binutils 2.24
+
 * Thu Aug 07 2014 Evgueni Souleimanov <esoule@100500.ca> - 4.4.7-6.1.1
 - build gcc 4.4.7 for rtems-4.6 (rtems-4.6ng10)
 - place manpages to /opt/rtems-4.6ng10/man
