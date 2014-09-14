@@ -37,7 +37,7 @@ BuildRoot:	%{_defaultbuildroot}
 Name:         %{rpmprefix}%{gcc_target}-gcc-newlib
 Summary:      gcc and newlib C Library for %{gcc_target}.
 Group: %{rpmgroup}
-Release:      4.0.7%{?dist}
+Release:      4.0.8%{?dist}
 License:      gcc is GPL/LGPL ; newlib no has restrictions on run-time usage
 
 AutoReqProv:  	on
@@ -59,6 +59,7 @@ Patch1: newlib-1.11.0-rtems-20030605.diff
 Patch2: gcc-3.2.3-obstack-1grow-fast-lvalue.patch
 Patch3: gcc-3.2.3-current_binding_level.patch
 Patch4: gcc-3.2.3-flag_jni-non-static.patch
+Patch50: newlib-1.11.0-rtems-stdint.patch
 
 BuildRequires:	texinfo >= 4.2
 BuildRequires:	%{rpmprefix}%{gcc_target}-binutils
@@ -191,6 +192,11 @@ This is gcc's and newlib C Library's sources with patches for RTEMS.
 %patch2 -p1
 %patch3 -p1
 %patch4 -p1
+
+## patch to introduce stdint.h
+cd newlib-%{newlib_version}
+%patch50 -p1
+cd ..
 
   cd gcc-%{gcc_version}
     sed -e 's/\(version_string = \"[^\"]*\)/\1 (OAR Corporation gcc-%{gcc_version}-20040420\/newlib-%{newlib_version}-20030605-4)/' \
@@ -716,6 +722,9 @@ This is the gcc/gnat compiler for %{gcc_target}
 %endif
 
 %changelog
+* Sun Sep 14 2014 Evgueni Souleimanov <esoule@100500.ca> - gcc3.2.3newlib1.11.0-4.0.8
+- introduce stdint.h from newlib-1.20.0
+
 * Sun Sep 14 2014 Evgueni Souleimanov <esoule@100500.ca> - gcc3.2.3newlib1.11.0-4.0.7
 - place packages into /opt/rtems-4.6ng6
 
