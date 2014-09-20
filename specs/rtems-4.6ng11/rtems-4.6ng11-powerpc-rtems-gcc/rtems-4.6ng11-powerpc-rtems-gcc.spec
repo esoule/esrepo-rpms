@@ -54,11 +54,11 @@
 %define gcc_pkgvers 4.8.2
 %define gcc_version 4.8.2
 %define gcc_rpmvers %{expand:%(echo "4.8.2" | tr - _ )}
-%define gcc_release 4.1.1
+%define gcc_release 4.1.5
 
 %define newlib_pkgvers		1.11.0
 %define newlib_version		1.11.0
-%define newlib_release		30.1.1
+%define newlib_release		30.1.5
 
 Name:         	rtems-4.6ng11-powerpc-rtems-gcc
 Summary:      	powerpc-rtems gcc
@@ -99,6 +99,14 @@ BuildRequires:  %{_host_rpmprefix}gcc-c++
 %endif
 %else
 %bcond_with gcc_stdint
+%endif
+
+# Do not use __cxa_atexit() by default, our
+# newlib 1.11.0 does not provide it
+%if "%{newlib_version}" >= "1.18.0"
+%bcond_without gcc_cxa_atexit
+%else
+%bcond_with gcc_cxa_atexit
 %endif
 
 # Enable newlib's iconv
@@ -301,6 +309,8 @@ Patch0:         ftp://ftp.rtems.org/pub/rtems/SOURCES/4.11/gcc-4.7.3-rtems4.11-2
 Source50:	ftp://sourceware.org/pub/newlib/newlib-%{newlib_pkgvers}.tar.gz
 Patch50:	newlib-1.11.0-rtems-20030605.diff
 Patch51:	newlib-1.11.0-iswctype-label-at-end.patch
+Patch52:	newlib-1.11.0-rtems-stdint.patch
+Patch53:	newlib-1.11.0-rtems-cflags.patch
 %endif
 
 %if 0%{?_build_mpfr}
@@ -338,6 +348,10 @@ cd ..
 
 
 
+%if %{with gcc_cxa_atexit}
+%else
+sed -i -e '/thread_file=.*rtems/,/default_use_cxa_atexit=yes/ { s/default_use_cxa_atexit=yes/default_use_cxa_atexit=no/}' gcc-%{gcc_pkgvers}/gcc/config.gcc
+%endif
 
 %if %{with gcc_stdint}
 sed -i -e '/thread_file=.*rtems/,/use_gcc_stdint=wrap/ { s/use_gcc_stdint=wrap/use_gcc_stdint=provide/}' gcc-%{gcc_pkgvers}/gcc/config.gcc
@@ -345,8 +359,17 @@ sed -i -e '/thread_file=.*rtems/,/use_gcc_stdint=wrap/ { s/use_gcc_stdint=wrap/u
 
 %setup -q -T -D -n %{name}-%{version} -a50
 cd newlib-%{newlib_version}
-%{?PATCH50:%patch50 -p1}
-%{?PATCH51:%patch51 -p1}
+%patch50 -p1
+%patch51 -p1
+## patch to introduce stdint.h
+%patch52 -p1
+## patch to alter cflags
+%patch53 -p1
+
+## auto-add -fno-strict-aliasing to -O2
+grep -R -E --files-with-matches '(CFLAGS|CXXFLAGS)="(\-g \-O2|\-O2)"' . \
+   | xargs --no-run-if-empty -n 1 sed --in-place -e 's,\(CFLAGS\|CXXFLAGS\)="\(\-g \-O2\|\-O2\)",\1="\2 -fno-strict-aliasing",g'
+
 cd ..
   # Copy the C library into gcc's source tree
   ln -s ../newlib-%{newlib_version}/newlib gcc-%{gcc_pkgvers}
@@ -925,6 +948,14 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
+* Sun Sep 21 2014 Evgueni Souleimanov <esoule@100500.ca> - 4.8.2-4.1.5
+- newlib: add stdint.h, inttypes.h, update machine/types.h from 1.20.0
+- newlib: build newlib with -fno-strict-aliasing, library code is
+  not ready for strict aliasing
+- newlib: enable -Wall and -Wextra warnings during build
+- gcc: do not use __cxa_atexit() by default, newlib-1.11.0 does not
+  provide it
+
 * Sat Jul 26 2014 Evgueni Souleimanov <esoule@100500.ca> - 4.8.2-4.1.1
 - Build gcc 4.8.2 for developing with rtems-4.6 (rtems-4.6ng11)
 - place manpages to /opt/rtems-4.6ng11/man

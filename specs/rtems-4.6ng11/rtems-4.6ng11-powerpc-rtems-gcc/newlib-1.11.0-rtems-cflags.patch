@@ -1,0 +1,28 @@
+diff -urN a/newlib/configure.host b/newlib/configure.host
+--- a/newlib/configure.host	2014-09-14 16:27:53.000000000 -0400
++++ b/newlib/configure.host	2014-09-19 21:28:02.000000000 -0400
+@@ -60,13 +60,13 @@
+ 
+ case "${target_optspace}:${host}" in
+   yes:*)
+-    newlib_cflags="${newlib_cflags} -Os"
++    newlib_cflags="${newlib_cflags} -Os -fno-strict-aliasing"
+     ;;
+   :m32r-* | :d10v-* | :d30v-* | :avr-*)
+-    newlib_cflags="${newlib_cflags} -Os"
++    newlib_cflags="${newlib_cflags} -Os -fno-strict-aliasing"
+     ;;
+   no:* | :*)
+-    newlib_cflags="${newlib_cflags} -O2"
++    newlib_cflags="${newlib_cflags} -O2 -fno-strict-aliasing"
+     ;;
+ esac
+ 
+@@ -167,6 +167,7 @@
+ 	;;
+   powerpc*)
+ 	machine_dir=powerpc
++	newlib_cflags="${newlib_cflags} -Wall -W"
+ 	;;
+   sh | sh64)
+ 	machine_dir=sh
