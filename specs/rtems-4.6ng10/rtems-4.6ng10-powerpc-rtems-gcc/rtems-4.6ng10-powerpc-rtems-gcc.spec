@@ -50,11 +50,11 @@
 %define gcc_pkgvers 4.4.7
 %define gcc_version 4.4.7
 %define gcc_rpmvers %{expand:%(echo "4.4.7" | tr - _ )}
-%define gcc_rpmrelease 6.1.2
+%define gcc_rpmrelease 6.1.5
 
 %define newlib_pkgvers		1.11.0
 %define newlib_version		1.11.0
-%define newlib_rpmrelease	34.1.2
+%define newlib_rpmrelease	34.1.5
 
 Name:         	rtems-4.6ng10-powerpc-rtems-gcc
 Summary:      	powerpc-rtems gcc
@@ -293,6 +293,8 @@ Patch0:		ftp://ftp.rtems.org/pub/rtems/SOURCES/4.10/gcc-4.4.7-rtems4.10-20130320
 Source50:	ftp://sourceware.org/pub/newlib/newlib-%{newlib_pkgvers}.tar.gz
 Patch50:	ftp://ftp.rtems.org/pub/rtems/SOURCES/4.6/newlib-1.11.0-rtems-20030605.diff
 Patch51:	newlib-1.11.0-iswctype-label-at-end.patch
+Patch52:	newlib-1.11.0-rtems-stdint.patch
+Patch53:	newlib-1.11.0-rtems-cflags-1.1.patch
 %endif
 
 %if 0%{?_build_mpfr}
@@ -337,8 +339,17 @@ sed -i -e '/thread_file=.*rtems/,/use_gcc_stdint=wrap/ { s/use_gcc_stdint=wrap/u
 
 %setup -q -T -D -n %{name}-%{version} -a50
 cd newlib-%{newlib_version}
-%{?PATCH50:%patch50 -p1}
-%{?PATCH51:%patch51 -p1}
+%patch50 -p1
+%patch51 -p1
+## patch to introduce stdint.h
+%patch52 -p1
+## patch to alter cflags
+%patch53 -p1
+
+## auto-add -fno-strict-aliasing -fno-inline-functions-called-once to -O2
+grep -R -E --files-with-matches '(CFLAGS|CXXFLAGS)="(\-g \-O2|\-O2)"' . \
+   | xargs --no-run-if-empty -n 1 sed --in-place -e 's,\(CFLAGS\|CXXFLAGS\)="\(\-g \-O2\|\-O2\)",\1="\2 -fno-strict-aliasing -fno-inline-functions-called-once",g'
+
 cd ..
   # Copy the C library into gcc's source tree
   ln -s ../newlib-%{newlib_version}/newlib gcc-%{gcc_pkgvers}
@@ -914,6 +925,13 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
+* Tue Sep 23 2014 Evgueni Souleimanov <esoule@100500.ca> - 4.4.7-6.1.5
+- newlib: add stdint.h, inttypes.h, update machine/types.h from 1.20.0
+- newlib: build newlib with -fno-strict-aliasing, library code is
+  not ready for strict aliasing
+- newlib: enable -Wall and -Wextra warnings during build
+- newlib: build with -fno-inline-functions-called-once
+
 * Thu Aug 07 2014 Evgueni Souleimanov <esoule@100500.ca> - 4.4.7-6.1.2
 - rebuild with binutils 2.24
 
