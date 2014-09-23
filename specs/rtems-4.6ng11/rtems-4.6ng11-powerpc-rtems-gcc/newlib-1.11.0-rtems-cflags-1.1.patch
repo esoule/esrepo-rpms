@@ -6,15 +6,15 @@ diff -urN a/newlib/configure.host b/newlib/configure.host
  case "${target_optspace}:${host}" in
    yes:*)
 -    newlib_cflags="${newlib_cflags} -Os"
-+    newlib_cflags="${newlib_cflags} -Os -fno-strict-aliasing"
++    newlib_cflags="${newlib_cflags} -Os -fno-strict-aliasing -fno-inline-functions-called-once"
      ;;
    :m32r-* | :d10v-* | :d30v-* | :avr-*)
 -    newlib_cflags="${newlib_cflags} -Os"
-+    newlib_cflags="${newlib_cflags} -Os -fno-strict-aliasing"
++    newlib_cflags="${newlib_cflags} -Os -fno-strict-aliasing -fno-inline-functions-called-once"
      ;;
    no:* | :*)
 -    newlib_cflags="${newlib_cflags} -O2"
-+    newlib_cflags="${newlib_cflags} -O2 -fno-strict-aliasing"
++    newlib_cflags="${newlib_cflags} -O2 -fno-strict-aliasing -fno-inline-functions-called-once"
      ;;
  esac
  

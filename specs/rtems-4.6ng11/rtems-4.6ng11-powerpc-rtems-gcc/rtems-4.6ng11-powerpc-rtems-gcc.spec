@@ -54,11 +54,11 @@
 %define gcc_pkgvers 4.8.2
 %define gcc_version 4.8.2
 %define gcc_rpmvers %{expand:%(echo "4.8.2" | tr - _ )}
-%define gcc_release 4.1.5
+%define gcc_release 4.1.6
 
 %define newlib_pkgvers		1.11.0
 %define newlib_version		1.11.0
-%define newlib_release		30.1.5
+%define newlib_release		30.1.6
 
 Name:         	rtems-4.6ng11-powerpc-rtems-gcc
 Summary:      	powerpc-rtems gcc
@@ -310,7 +310,7 @@ Source50:	ftp://sourceware.org/pub/newlib/newlib-%{newlib_pkgvers}.tar.gz
 Patch50:	newlib-1.11.0-rtems-20030605.diff
 Patch51:	newlib-1.11.0-iswctype-label-at-end.patch
 Patch52:	newlib-1.11.0-rtems-stdint.patch
-Patch53:	newlib-1.11.0-rtems-cflags.patch
+Patch53:	newlib-1.11.0-rtems-cflags-1.1.patch
 %endif
 
 %if 0%{?_build_mpfr}
@@ -366,9 +366,9 @@ cd newlib-%{newlib_version}
 ## patch to alter cflags
 %patch53 -p1
 
-## auto-add -fno-strict-aliasing to -O2
+## auto-add -fno-strict-aliasing -fno-inline-functions-called-once to -O2
 grep -R -E --files-with-matches '(CFLAGS|CXXFLAGS)="(\-g \-O2|\-O2)"' . \
-   | xargs --no-run-if-empty -n 1 sed --in-place -e 's,\(CFLAGS\|CXXFLAGS\)="\(\-g \-O2\|\-O2\)",\1="\2 -fno-strict-aliasing",g'
+   | xargs --no-run-if-empty -n 1 sed --in-place -e 's,\(CFLAGS\|CXXFLAGS\)="\(\-g \-O2\|\-O2\)",\1="\2 -fno-strict-aliasing -fno-inline-functions-called-once",g'
 
 cd ..
   # Copy the C library into gcc's source tree
@@ -948,6 +948,9 @@ if [ $1 -eq 0 ]; then
 fi
 
 %changelog
+* Tue Sep 23 2014 Evgueni Souleimanov <esoule@100500.ca> - 4.8.2-4.1.6
+- newlib: build with -fno-inline-functions-called-once
+
 * Sun Sep 21 2014 Evgueni Souleimanov <esoule@100500.ca> - 4.8.2-4.1.5
 - newlib: add stdint.h, inttypes.h, update machine/types.h from 1.20.0
 - newlib: build newlib with -fno-strict-aliasing, library code is
