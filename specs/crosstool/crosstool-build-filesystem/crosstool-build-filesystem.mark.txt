@@ -1,0 +1,1 @@
+crosstool-build-filesystem - Directories for building crosstool without fix-embedded-paths utility
