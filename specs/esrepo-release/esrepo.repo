@@ -1,0 +1,56 @@
+# yum repository configuration for esrepo
+
+[esrepo-main]
+name=esrepo for Enterprise Linux $releasever - Main - $basearch
+baseurl=http://localhost.localdomain/ftp/pub/linux/esrepo/centos/$releasever/packages/main/$basearch/
+enabled=1
+gpgcheck=0
+
+[esrepo-extras]
+name=esrepo for Enterprise Linux $releasever - Extras - $basearch
+baseurl=http://localhost.localdomain/ftp/pub/linux/esrepo/centos/$releasever/packages/extras/$basearch/
+enabled=0
+gpgcheck=0
+
+[esrepo-testing]
+name=esrepo for Enterprise Linux $releasever - Testing - $basearch
+baseurl=http://localhost.localdomain/ftp/pub/linux/esrepo/centos/$releasever/packages/testing/$basearch/
+enabled=0
+gpgcheck=0
+
+[esrepo-main-debuginfo]
+name=esrepo for Enterprise Linux $releasever - Main Debug - $basearch
+baseurl=http://localhost.localdomain/ftp/pub/linux/esrepo/centos/$releasever/debuginfo/main/$basearch/
+enabled=0
+gpgcheck=0
+
+[esrepo-extras-debuginfo]
+name=esrepo for Enterprise Linux $releasever - Extras Debug - $basearch
+baseurl=http://localhost.localdomain/ftp/pub/linux/esrepo/centos/$releasever/debuginfo/extras/$basearch/
+enabled=0
+gpgcheck=0
+
+[esrepo-testing-debuginfo]
+name=esrepo for Enterprise Linux $releasever - Testing Debug - $basearch
+baseurl=http://localhost.localdomain/ftp/pub/linux/esrepo/centos/$releasever/debuginfo/testing/$basearch/
+enabled=0
+gpgcheck=0
+
+[esrepo-main-source]
+name=esrepo for Enterprise Linux $releasever - Main Source - $basearch
+baseurl=http://localhost.localdomain/ftp/pub/linux/esrepo/centos/$releasever/packages/main/source/
+enabled=0
+gpgcheck=0
+
+[esrepo-extras-source]
+name=esrepo for Enterprise Linux $releasever - Extras Source - $basearch
+baseurl=http://localhost.localdomain/ftp/pub/linux/esrepo/centos/$releasever/packages/extras/source/
+enabled=0
+gpgcheck=0
+
+[esrepo-testing-source]
+name=esrepo for Enterprise Linux $releasever - Testing Source - $basearch
+baseurl=http://localhost.localdomain/ftp/pub/linux/esrepo/centos/$releasever/packages/testing/source/
+enabled=0
+gpgcheck=0
+
