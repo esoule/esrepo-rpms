@@ -17,7 +17,7 @@ Version:	1.8.10
 %if %{svn_version}
 Release: 	0.%{svn_version}%{?dist}
 %else
-Release: 	7.3%{?dist}
+Release: 	8.1.1%{?dist}
 %endif
 License: 	GPL+
 Group: 		Applications/Internet
@@ -60,6 +60,14 @@ Patch22:		wireshark-1.8.10-cve-2014-2281.patch
 Patch23:		wireshark-1.8.10-cve-2014-2283.patch
 Patch24:		wireshark-1.8.10-cve-2014-2299.patch
 Patch25:		wireshark-1.8.10-cve-2013-6337.patch
+Patch26:		wireshark-1.8.15-CVE-2014-6421.patch
+Patch27:		wireshark-1.8.15-CVE-2014-6423.patch
+Patch28:		wireshark-1.8.15-CVE-2014-6424.patch
+Patch29:		wireshark-1.8.15-CVE-2014-6425.patch
+Patch30:		wireshark-1.8.15-CVE-2014-6426.patch
+Patch31:		wireshark-1.8.15-CVE-2014-6427.patch
+Patch32:		wireshark-1.8.15-CVE-2014-6428.patch
+Patch33:		wireshark-1.8.15-CVE-2014-6429.patch
 
 Url: 		http://www.wireshark.org/
 BuildRoot: 	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
@@ -162,6 +170,14 @@ and plugins.
 %patch23 -p1 -b .cve-2014-2283
 %patch24 -p1 -b .cve-2014-2299
 %patch25 -p1 -b .cve-2013-6337
+%patch26 -p1 -b .cve-2014-6421
+%patch27 -p1 -b .cve-2014-6423
+%patch28 -p1 -b .cve-2014-6424
+%patch29 -p1 -b .cve-2014-6425
+%patch30 -p1 -b .cve-2014-6426
+%patch31 -p1 -b .cve-2014-6427
+%patch32 -p1 -b .cve-2014-6428
+%patch33 -p1 -b .cve-2014-6429
 
 %build
 %ifarch s390 s390x sparcv9 sparc64
@@ -395,10 +411,7 @@ gtk-update-icon-cache %{_datadir}/icons/hicolor &>/dev/null || :
 %{_datadir}/aclocal/*
 
 %changelog
-* Sat Jul 26 2014 Evgueni Souleimanov <esoule@100500.ca> 1.8.10-7.3
-- update URL to source tarball
-
-* Sun Jun 15 2014 Evgueni Souleimanov <esoule@100500.ca> 1.8.10-7.2
+* Wed Oct 29 2014 Evgueni Souleimanov <esoule@100500.ca> 1.8.10-8.1.1
 - run Wireshark GUI as user, not root (remove pam configs)
 - allow packet capture to users who are members of group
   wireshark (using setcap)
@@ -408,6 +421,18 @@ gtk-update-icon-cache %{_datadir}/icons/hicolor &>/dev/null || :
     --with-gtk3=no
     --with-plugins
     --enable-airpcap
+- update URL to source tarball
+
+* Fri Oct  3 2014 Peter Hatina <phatina@redhat.com> - 1.8.10-8
+- security patches
+- Resolves: CVE-2014-6421
+            CVE-2014-6423
+            CVE-2014-6424
+            CVE-2014-6425
+            CVE-2014-6426
+            CVE-2014-6427
+            CVE-2014-6428
+            CVE-2014-6429
 
 * Wed Mar 26 2014 Peter Hatina <phatina@redhat.com> 1.8.10-7
 - security patches
