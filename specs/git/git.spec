@@ -43,8 +43,8 @@
 %endif
 
 Name:           git
-Version:        2.1.2
-Release:        4.1.1%{?dist}
+Version:        2.3.0
+Release:        1%{?dist}
 Summary:        Fast Version Control System
 License:        GPLv2
 Group:          Development/Tools
@@ -57,7 +57,7 @@ Source5:        git-gui.desktop
 Source6:        gitweb.conf.in
 Source10:       http://www.kernel.org/pub/software/scm/git/%{name}-manpages-%{version}.tar.gz
 Source11:       http://www.kernel.org/pub/software/scm/git/%{name}-htmldocs-%{version}.tar.gz
-Source12:       git.service
+Source12:       git@.service
 Source13:       git.socket
 Patch0:         git-1.8-gitweb-home-link.patch
 # https://bugzilla.redhat.com/490602
@@ -82,6 +82,7 @@ BuildRequires:  libgnome-keyring-devel
 BuildRequires:  pcre-devel
 BuildRequires:  openssl-devel
 BuildRequires:  zlib-devel >= 1.2
+BuildRequires:  pkgconfig(bash-completion)
 %if %{use_systemd}
 # For macros
 BuildRequires:  systemd
@@ -141,18 +142,6 @@ and full access to internals.
 
 This is a dummy package which brings in all subpackages.
 
-%package bzr
-Summary:        Git tools for working with bzr repositories
-Group:          Development/Tools
-%if %{noarch_sub}
-BuildArch:      noarch
-%endif
-Requires:       git = %{version}-%{release}
-Requires:       bzr
-
-%description bzr
-%{summary}.
-
 %package daemon
 Summary:        Git protocol dæmon
 Group:          Development/Tools
@@ -178,18 +167,6 @@ Requires:       git = %{version}-%{release}
 
 %description -n gitweb
 Simple web interface to track changes in git repositories
-
-%package hg
-Summary:        Git tools for working with mercurial repositories
-Group:          Development/Tools
-%if %{noarch_sub}
-BuildArch:      noarch
-%endif
-Requires:       git = %{version}-%{release}
-Requires:       mercurial >= 1.8
-
-%description hg
-%{summary}.
 
 %package p4
 Summary:        Git tools for working with Perforce depots
@@ -473,12 +450,10 @@ perl -p \
     %{SOURCE3} > %{buildroot}%{_sysconfdir}/xinetd.d/git
 %endif
 
-# Install bzr and hg remote helpers from contrib
-install -pm 755 contrib/remote-helpers/git-remote-{bzr,hg} %{buildroot}%{gitcoredir}
-
 # Setup bash completion
-mkdir -p %{buildroot}%{_sysconfdir}/bash_completion.d
-install -pm 644 contrib/completion/git-completion.bash %{buildroot}%{_sysconfdir}/bash_completion.d/git
+bashcompdir=$(pkg-config --variable=completionsdir bash-completion)
+install -Dpm 644 contrib/completion/git-completion.bash %{buildroot}$bashcompdir/git
+ln -s git %{buildroot}$bashcompdir/gitk
 
 # Install tcsh completion
 mkdir -p %{buildroot}%{_datadir}/git-core/contrib/completion
@@ -522,13 +497,13 @@ rm -rf %{buildroot}
 
 %if %{use_systemd}
 %post daemon
-%systemd_post git.service
+%systemd_post git@.service
 
 %preun daemon
-%systemd_preun git.service
+%systemd_preun git@.service
 
 %postun daemon
-%systemd_postun_with_restart git.service
+%systemd_postun_with_restart git@.service
 %endif
 
 %files -f bin-man-doc-files
@@ -537,15 +512,8 @@ rm -rf %{buildroot}
 %doc README COPYING Documentation/*.txt Documentation/RelNotes contrib/
 %{!?_without_docs: %doc Documentation/*.html Documentation/docbook-xsl.css}
 %{!?_without_docs: %doc Documentation/howto Documentation/technical}
-%{_sysconfdir}/bash_completion.d
+%{_datadir}/bash-completion/
 
-%files bzr
-%defattr(-,root,root)
-%{gitcoredir}/git-remote-bzr
-
-%files hg
-%defattr(-,root,root)
-%{gitcoredir}/git-remote-hg
 
 %files p4
 %defattr(-,root,root)
@@ -621,7 +589,7 @@ rm -rf %{buildroot}
 %doc Documentation/*daemon*.txt
 %if %{use_systemd}
 %{_unitdir}/git.socket
-%{_unitdir}/git.service
+%{_unitdir}/git@.service
 %else
 %config(noreplace)%{_sysconfdir}/xinetd.d/git
 %endif
@@ -642,8 +610,32 @@ rm -rf %{buildroot}
 # No files for you!
 
 %changelog
-* Sat Oct 11 2014 Evgueni Souleimanov <esoule@100500.ca> - 2.1.2-4.1.1
-- 2.1.2
+* Fri Feb 06 2015 Jon Ciesla <limburgher@gmail.com> - 2.3.0-1
+- Update to 2.3.0.
+
+* Tue Jan 27 2015 Ville Skyttä <ville.skytta@iki.fi> - 2.2.2-2
+- Install bash completion to %%{_datadir}/bash-completion/completions
+
+* Fri Jan 23 2015 Jon Ciesla <limburgher@gmail.com> - 2.2.2-1
+- Update to 2.2.2.
+
+* Thu Jan 08 2015 Jon Ciesla <limburgher@gmail.com> - 2.2.1-1
+- Update to 2.2.1.
+
+* Thu Dec 11 2014 Petr Stodulka <pstodulk@redhat.com> - 2.2.0-3
+- removed subpackage git-hg which is replaced by git-remote-hg from
+  separated package
+
+* Fri Nov 28 2014 Petr Stodulka <pstodulk@redhat.com> - 2.2.0-2
+- removed subpackage git-bzr which is replaced by git-remote-bzr from
+  separated package
+
+* Fri Nov 28 2014 Petr Stodulka <pstodulk@redhat.com> - 2.2.0-1
+- 2.2.0
+
+* Fri Oct 24 2014 Pierre-Yves Chibon <pingou@pingoured.fr> - 2.1.0-5
+- Rename the git.service into git@.service fixing
+  https://bugzilla.redhat.com/980574
 
 * Mon Sep 08 2014 Jitka Plesnikova <jplesnik@redhat.com> - 2.1.0-4
 - Perl 5.20 re-rebuild of bootstrapped packages
