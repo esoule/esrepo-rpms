@@ -9,7 +9,7 @@
 Summary: A free and portable font rendering engine
 Name: freetype
 Version: 2.3.11
-Release: 14%{?dist}.1
+Release: 15%{?dist}.1
 License: FTL or GPLv2+
 Group: System Environment/Libraries
 URL: http://www.freetype.org
@@ -63,6 +63,28 @@ Patch118:  freetype-2.3.11-CVE-2012-1144.patch
 Patch119:  freetype-2.3.11-bdf-overflow.patch
 Patch120:  freetype-2.3.11-array-initialization.patch
 Patch121:  freetype-2.3.11-CVE-2012-5669.patch
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=1197737
+Patch122:  freetype-2.3.11-CVE-2014-9657.patch
+Patch123:  freetype-2.3.11-CVE-2014-9658.patch
+Patch124:  freetype-2.3.11-ft-strncmp.patch
+Patch125:  freetype-2.3.11-CVE-2014-9675.patch
+Patch126:  freetype-2.3.11-CVE-2014-9660.patch
+Patch127:  freetype-2.3.11-CVE-2014-9661a.patch
+Patch128:  freetype-2.3.11-CVE-2014-9661b.patch
+Patch129:  freetype-2.3.11-CVE-2014-9663.patch
+Patch130:  freetype-2.3.11-CVE-2014-9664a.patch
+Patch131:  freetype-2.3.11-CVE-2014-9664b.patch
+Patch132:  freetype-2.3.11-CVE-2014-9667.patch
+Patch133:  freetype-2.3.11-CVE-2014-9669.patch
+Patch134:  freetype-2.3.11-CVE-2014-9670.patch
+Patch135:  freetype-2.3.11-CVE-2014-9671.patch
+Patch136:  freetype-2.3.11-CVE-2014-9673.patch
+Patch137:  freetype-2.3.11-CVE-2014-9674a.patch
+Patch138:  freetype-2.3.11-unsigned-long.patch
+Patch139:  freetype-2.3.11-CVE-2014-9674b.patch
+Patch140:  freetype-2.3.11-pcf-read-a.patch
+Patch141:  freetype-2.3.11-pcf-read-b.patch
 
 Buildroot: %{_tmppath}/%{name}-%{version}-root-%(%{__id_u} -n)
 
@@ -164,6 +186,27 @@ popd
 %patch119 -p1 -b .bdf-overflow
 %patch120 -p1 -b .array-initialization
 %patch121 -p1 -b .CVE-2012-5669
+
+%patch122 -p1 -b .CVE-2014-9657
+%patch123 -p1 -b .CVE-2014-9658
+%patch124 -p1 -b .ft-strncmp
+%patch125 -p1 -b .CVE-2014-9675
+%patch126 -p1 -b .CVE-2014-9660
+%patch127 -p1 -b .CVE-2014-9661a
+%patch128 -p1 -b .CVE-2014-9661b
+%patch129 -p1 -b .CVE-2014-9663
+%patch130 -p1 -b .CVE-2014-9664a
+%patch131 -p1 -b .CVE-2014-9664b
+%patch132 -p1 -b .CVE-2014-9667
+%patch133 -p1 -b .CVE-2014-9669
+%patch134 -p1 -b .CVE-2014-9670
+%patch135 -p1 -b .CVE-2014-9671
+%patch136 -p1 -b .CVE-2014-9673
+%patch137 -p1 -b .CVE-2014-9674a
+%patch138 -p1 -b .unsigned-long
+%patch139 -p1 -b .CVE-2014-9674b
+%patch140 -p1 -b .pvf-read-a
+%patch141 -p1 -b .pvf-read-b
 
 %build
 
@@ -293,10 +336,45 @@ rm -rf $RPM_BUILD_ROOT
 %doc docs/tutorial
 
 %changelog
-* Thu Jan 24 2013 Marek Kasik <mkasik@redhat.com> 2.3.11-14.el6_3.1
+* Wed Mar  4 2015 Marek Kasik <mkasik@redhat.com> - 2.3.11-15.el6_6.1
+- Fixes CVE-2014-9657
+   - Check minimum size of `record_size'.
+- Fixes CVE-2014-9658
+   - Use correct value for minimum table length test.
+- Fixes CVE-2014-9675
+   - New macro that checks one character more than `strncmp'.
+- Fixes CVE-2014-9660
+   - Check `_BDF_GLYPH_BITS'.
+- Fixes CVE-2014-9661
+   - Initialize `face->ttf_size'.
+   - Always set `face->ttf_size' directly.
+   - Exclusively use the `truetype' font driver for loading
+     the font contained in the `sfnts' array.
+- Fixes CVE-2014-9663
+   - Fix order of validity tests.
+- Fixes CVE-2014-9664
+   - Add another boundary testing.
+   - Fix boundary testing.
+- Fixes CVE-2014-9667
+   - Protect against addition overflow.
+- Fixes CVE-2014-9669
+   - Protect against overflow in additions and multiplications.
+- Fixes CVE-2014-9670
+   - Add sanity checks for row and column values.
+- Fixes CVE-2014-9671
+   - Check `size' and `offset' values.
+- Fixes CVE-2014-9673
+   - Fix integer overflow by a broken POST table in resource-fork.
+- Fixes CVE-2014-9674
+   - Fix integer overflow by a broken POST table in resource-fork.
+   - Additional overflow check in the summation of POST fragment lengths.
+- Work around behaviour of X11's `pcfWriteFont' and `pcfReadFont' functions
+- Resolves: #1197737
+
+* Thu Jan 24 2013 Marek Kasik <mkasik@redhat.com> 2.3.11-15
 - Fix CVE-2012-5669
     (Use correct array size for checking `glyph_enc')
-- Resolves: #903542
+- Resolves: #903543
 
 * Thu Jul 19 2012 Marek Kasik <mkasik@redhat.com> 2.3.11-14
 - A little change in configure part
