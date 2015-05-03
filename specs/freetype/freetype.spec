@@ -13,9 +13,9 @@ Release: 14%{?_release_tag}%{!?_release_tag:%{?dist}.1}
 License: FTL or GPLv2+
 Group: System Environment/Libraries
 URL: http://www.freetype.org
-Source:  http://download.savannah.gnu.org/releases/freetype/freetype-old/freetype-%{version}.tar.bz2
-Source1: http://download.savannah.gnu.org/releases/freetype/freetype-old/freetype-doc-%{version}.tar.bz2
-Source2: http://download.savannah.gnu.org/releases/freetype/freetype-old/ft2demos-%{version}.tar.bz2
+Source:  http://download.savannah.gnu.org/releases/freetype/freetype-%{version}.tar.bz2
+Source1: http://download.savannah.gnu.org/releases/freetype/freetype-doc-%{version}.tar.bz2
+Source2: http://download.savannah.gnu.org/releases/freetype/ft2demos-%{version}.tar.bz2
 
 # Add -lm when linking X demos
 Patch5: ft2demos-2.1.9-mathlib.patch
@@ -293,9 +293,6 @@ rm -rf $RPM_BUILD_ROOT
 %doc docs/tutorial
 
 %changelog
-* Sat Jul 26 2014 Evgueni Souleimanov <esoule@100500.ca> 2.3.11-14.el6_3.1.0.2
-- update URLs to source tarballs
-
 * Fri Jul 25 2014 Evgueni Souleimanov <esoule@100500.ca> 2.3.11-14.el6_3.1.0.1
 - allow customizing release string on command line
 
