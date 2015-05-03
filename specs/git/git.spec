@@ -43,7 +43,7 @@
 %endif
 
 Name:           git
-Version:        2.3.0
+Version:        2.3.6
 Release:        1%{?dist}
 Summary:        Fast Version Control System
 License:        GPLv2
@@ -610,6 +610,28 @@ rm -rf %{buildroot}
 # No files for you!
 
 %changelog
+* Wed Apr 22 2015 Jon Ciesla <limburgher@gmail.com> - 2.3.6-1
+- Update to 2.3.6.
+
+* Mon Apr 06 2015 Jon Ciesla <limburgher@gmail.com> - 2.3.5-1
+- Update to 2.3.5.
+
+* Tue Mar 24 2015 Petr Stodulka <pstodulk@redhat.com> - 2.3.4-1
+- Update to 2.3.4.
+
+* Mon Mar 16 2015 Jon Ciesla <limburgher@gmail.com> - 2.3.3-1
+- Update to 2.3.3.
+
+* Mon Mar 09 2015 Jon Ciesla <limburgher@gmail.com> - 2.3.2-1
+- Update to 2.3.2.
+
+* Fri Feb 27 2015 Jon Ciesla <limburgher@gmail.com> - 2.3.1-1
+- Update to 2.3.1.
+
+* Sat Feb 21 2015 Till Maas <opensource@till.name> - 2.3.0-2
+- Rebuilt for Fedora 23 Change
+  https://fedoraproject.org/wiki/Changes/Harden_all_packages_with_position-independent_code
+
 * Fri Feb 06 2015 Jon Ciesla <limburgher@gmail.com> - 2.3.0-1
 - Update to 2.3.0.
 
