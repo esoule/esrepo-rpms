@@ -1,7 +1,7 @@
 Summary: Utility for the creation of squashfs filesystems
 Name: squashfs-tools
 Version: 4.3
-Release: 6%{?dist}
+Release: 6.1.1%{?dist}
 License: GPLv2+
 Group: System Environment/Base
 URL: http://squashfs.sourceforge.net/
@@ -37,8 +37,8 @@ pushd squashfs-tools
 CFLAGS="%{optflags}" XZ_SUPPORT=1 LZO_SUPPORT=1 LZMA_XZ_SUPPORT=1 LZ4_SUPPORT=1 make %{?_smp_mflags}
 
 %install
-mkdir -p %{buildroot}%{_sbindir} %{buildroot}%{_mandir}/man1
-install -m 755 squashfs-tools/mksquashfs %{buildroot}%{_sbindir}/mksquashfs
+mkdir -p %{buildroot}/sbin %{buildroot}%{_sbindir} %{buildroot}%{_mandir}/man1
+install -m 755 squashfs-tools/mksquashfs %{buildroot}/sbin/mksquashfs
 install -m 755 squashfs-tools/unsquashfs %{buildroot}%{_sbindir}/unsquashfs
 install -m 644 %{SOURCE1} %{buildroot}%{_mandir}/man1/mksquashfs.1
 install -m 644 %{SOURCE2} %{buildroot}%{_mandir}/man1/unsquashfs.1
@@ -53,10 +53,13 @@ rm -rf %{buildroot}
 %doc README
 %{_mandir}/man1/*
 
-%{_sbindir}/mksquashfs
+/sbin/mksquashfs
 %{_sbindir}/unsquashfs
 
 %changelog
+* Fri May  8 2015 Evgueni Souleimanov <esoule@100500.ca> 4.3-6.1.1
+- Place mksquashfs in /sbin instead of /usr/sbin
+
 * Fri Jun 13 2014 Bruno Wolff III <bruno@wolff.to> 4.3-6
 - Apply a couple of upstream patches.
 - Fixes issue issue with too much memory use under PAE kernels
