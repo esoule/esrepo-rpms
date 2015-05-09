@@ -1,20 +1,19 @@
 %bcond_without snmp
 %bcond_without vrrp
+%bcond_without sha1
 %bcond_with profile
 %bcond_with debug
 
 Name: keepalived
 Summary: Load balancer and high availability service
-Version: 1.2.13
-Release: 4%{?dist}
+Version: 1.2.16
+Release: 4.1.1%{?dist}
 License: GPLv2+
 URL: http://www.keepalived.org/
 Group: System Environment/Daemons
 
 Source0: http://www.keepalived.org/software/keepalived-%{version}.tar.gz
 Source1: keepalived.init
-
-Patch0: bz1100028-keepalived-man-snmp.patch
 
 Requires(post): /sbin/chkconfig
 Requires(preun): /sbin/chkconfig
@@ -42,14 +41,14 @@ Keepalived also implements the Virtual Router Redundancy Protocol
 
 %prep
 %setup -q
-%patch0 -p1
 
 %build
 %configure \
     %{?with_debug:--enable-debug} \
     %{?with_profile:--enable-profile} \
     %{!?with_vrrp:--disable-vrrp} \
-    %{?with_snmp:--enable-snmp}
+    %{?with_snmp:--enable-snmp} \
+    %{?with_sha1:--enable-sha1}
 %{__make} %{?_smp_mflags} STRIP=/bin/true
 
 %install
@@ -99,6 +98,9 @@ fi
 %{_mandir}/man8/keepalived.8*
 
 %changelog
+* Fri May  8 2015 Evgueni Souleimanov <esoule@100500.ca> - 1.2.16-4.1.1
+- Update to version 1.2.16
+
 * Wed Aug 07 2014 Ryan O'Hara <rohara@redhat.com> - 1.2.13-4
 - Bump release number
   Related: rhbz#1100029, rhbz#1100030
