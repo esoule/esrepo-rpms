@@ -1,0 +1,25 @@
+From 39d99e689dc4e86a39663f5cb563a03028b62d59 Mon Sep 17 00:00:00 2001
+From: Evgueni Souleimanov <esoule@100500.ca>
+Date: Wed, 20 May 2015 20:58:17 -0400
+Subject: [PATCH 8/9] Makefile.in: fix "Makefile.in seems to ignore the
+ --datarootdir setting"
+
+---
+ Makefile.in | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Makefile.in b/Makefile.in
+index a2d0c46..394753d 100644
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -21,6 +21,7 @@ srcdir	     = @srcdir@
+ bindir       = @bindir@
+ libdir	     = @TTT_LIBDIR@
+ mandir	     = @mandir@
++datarootdir	= @datarootdir@
+ 
+ # ------------------------------------------------------------------------
+ #       Include directives for Tcl, Tk, and X include files 
+-- 
+2.3.6
+

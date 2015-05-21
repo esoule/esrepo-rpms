@@ -1,0 +1,109 @@
+From 74f60a71f300d2b88ae255781b64fa0eb4147230 Mon Sep 17 00:00:00 2001
+From: Evgueni Souleimanov <esoule@100500.ca>
+Date: Wed, 20 May 2015 20:58:13 -0400
+Subject: [PATCH 5/9] configure: fix configure.in to compile on x86_64 Linux
+ hosts
+
+Search for libraries in $libdir (/usr/lib64 on x86_64).
+
+Search for shared library libBLT24.so in addition to the static library
+of the same name.
+
+Search for blt.h in /usr/include/blt
+
+Do not examine itcl library for now.
+---
+ configure.in | 30 +++++++++++++++++++++---------
+ 1 file changed, 21 insertions(+), 9 deletions(-)
+
+diff --git a/configure.in b/configure.in
+index 74a858f..f2f804e 100644
+--- a/configure.in
++++ b/configure.in
+@@ -197,6 +197,7 @@ guesses="\
+  $PWD/../tcl8.4 \
+  $PWD/../tcl8.3 \
+  $PWD/../tcl8.2 \
++ $libdir \
+  $prefix/lib \
+  $exec_prefix/lib \
+  /usr/local/lib /usr/lib"
+@@ -250,6 +251,7 @@ guesses="\
+  $PWD/../tk8.4 \
+  $PWD/../tk8.3 \
+  $PWD/../tk8.2 \
++ $libdir \
+  $prefix/lib \
+  $exec_prefix/lib \
+  /usr/local/lib /usr/lib"
+@@ -297,6 +299,7 @@ guesses="\
+  /usr/lib/tk8.4 \
+  /usr/lib/tk8.3 \
+  /usr/lib/tk8.2 \
++ $libdir \
+  $prefix/lib \
+  $exec_prefix/lib \
+  $XLIBDIR \
+@@ -357,14 +360,14 @@ esac
+ itclLibSpec=""
+ itclIncSpec=""
+ itclSuffix=""
+-if test "x$itclConfigFile" != "x" ; then
+-  . $itclConfigFile
+-  tclIncSpec="-I${TCL_PREFIX}/include/itcl"
+-  tkIncSpec="-I${TK_PREFIX}/include/itcl"
+-  tclLibDir=${TCL_PREFIX}/lib/itcl
+-  tkLibDir=${TK_PREFIX}/lib/itcl
+-  itclSuffix="i"
+-fi
++# if test "x$itclConfigFile" != "x" ; then
++#   . $itclConfigFile
++#   tclIncSpec="-I${TCL_PREFIX}/include/itcl"
++#   tkIncSpec="-I${TK_PREFIX}/include/itcl"
++#   tclLibDir=${TCL_PREFIX}/lib/itcl
++#   tkLibDir=${TK_PREFIX}/lib/itcl
++#   itclSuffix="i"
++# fi
+ 
+ tclLibSpec=${TCL_LIB_SPEC}
+ tkLibSpec=${TK_LIB_SPEC}
+@@ -455,11 +458,14 @@ bltHdrFile=""
+ guesses="\
+  $ttt_ckcmd_blt_home \
+  $ttt_ckcmd_blt_home/include \
++ $prefix/include/blt \
+  $prefix/include \
++ $exec_prefix/include/blt \
+  $exec_prefix/include \
+  /usr/local/include \
+  /usr/local/blt/include \
+  /usr/pkg/include \
++ /usr/include/blt \
+  /usr/include"
+ 
+ for dir in $guesses; do
+@@ -482,6 +488,7 @@ bltLibFile=""
+ guesses="\
+  $ttt_ckcmd_blt_home \
+  $ttt_ckcmd_blt_home/lib \
++ $libdir \
+  $prefix/lib \
+  $exec_prefix/lib \
+  /usr/local/lib \
+@@ -490,7 +497,12 @@ guesses="\
+  /usr/lib"
+ 
+ for dir in $guesses; do
+-  if test -r "$dir/libBLT24.a" ; then
++  if test -r "$dir/libBLT24.so" ; then
++    bltLibFile="$dir/libBLT24.so"
++    bltLibDir="$dir"
++    bltLibSpec="-L$dir -lBLT24"
++    break
++  elif test -r "$dir/libBLT24.a" ; then
+     bltLibFile="$dir/libBLT24.a"
+     bltLibDir="$dir"
+     bltLibSpec="-L$dir -lBLT24"
+-- 
+2.3.6
+

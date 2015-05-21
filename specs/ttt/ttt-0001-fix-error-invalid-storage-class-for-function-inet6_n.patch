@@ -1,0 +1,38 @@
+From 0f3c6d3944415ecbbe8ba3f1747b17272e019a3a Mon Sep 17 00:00:00 2001
+From: Evgueni Souleimanov <esoule@100500.ca>
+Date: Wed, 20 May 2015 20:57:01 -0400
+Subject: [PATCH 1/9] fix "error: invalid storage class for function
+ 'inet6_ntoa'"
+
+---
+ net_names.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/net_names.c b/net_names.c
+index e533d42..e50cc94 100644
+--- a/net_names.c
++++ b/net_names.c
+@@ -161,6 +161,11 @@ static char *pname_lookup(struct pname_tab *tab, long id)
+     return NULL;
+ }
+ 
++#ifdef IPV6
++static char *inet6_ntoa(u_int32_t *addr);  /* should be replaced
++					      by addr2ascii */
++#endif /* IPV6 */
++
+ char *net_getname(long type, long *id)
+ {
+     char *buf, *name;
+@@ -261,8 +266,6 @@ char *net_getname(long type, long *id)
+     case TTTTYPE_IPV6HOST:
+     {
+ 	u_int32_t tmp[4];
+-	static char *inet6_ntoa(u_int32_t *addr);  /* should be replaced
+-						      by addr2ascii */
+ 	if ((buf = malloc(sizeof("xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:xxxx")))
+ 	    == NULL)
+ 	    fatal_error("get_protoname: no memory\n");
+-- 
+2.3.6
+

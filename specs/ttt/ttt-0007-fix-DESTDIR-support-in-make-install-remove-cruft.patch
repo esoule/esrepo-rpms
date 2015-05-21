@@ -1,0 +1,51 @@
+From 9190a9db28fb24ef9a79365dee48e6806b6b2ed1 Mon Sep 17 00:00:00 2001
+From: Evgueni Souleimanov <esoule@100500.ca>
+Date: Wed, 20 May 2015 20:58:16 -0400
+Subject: [PATCH 7/9] fix DESTDIR support in "make install", remove cruft
+
+---
+ Makefile.in | 26 +++++++++++++++-----------
+ 1 file changed, 15 insertions(+), 11 deletions(-)
+
+diff --git a/Makefile.in b/Makefile.in
+index 4db822d..a2d0c46 100644
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -93,19 +93,23 @@ text_viewer.o: viewer.c
+ 	$(CC) $(CC_SWITCHES) -c $*.c
+ 
+ install: all
+-	for i in ttt tttprobe tttview; do \
+-		$(INSTALL) -m 555 -o bin -g bin $$i $(bindir); \
+-	done
+-	if [ ! -d $(libdir) ]; then \
+-		mkdir $(libdir); \
+-	fi
+-	$(INSTALL) -m 444 -o bin -g bin ttt.tcl $(libdir)
++	$(INSTALL) -d -m 0755 $(DESTDIR)$(bindir)
++	$(INSTALL) -m 0755 ttt $(DESTDIR)$(bindir)
++	$(INSTALL) -m 0755 tttprobe $(DESTDIR)$(bindir)
++	$(INSTALL) -m 0755 tttview $(DESTDIR)$(bindir)
++	$(INSTALL) -d -m 0755 $(DESTDIR)$(libdir)
++	$(INSTALL) -m 0644 ttt.tcl $(DESTDIR)$(libdir)
++
++install-extra: $(EXTRA_PROG)
++	$(INSTALL) -d -m 0755 $(DESTDIR)$(bindir)
++	$(INSTALL) -m 0755 ttttextview $(DESTDIR)$(bindir)
++	$(INSTALL) -m 0755 tttrelay $(DESTDIR)$(bindir)
+ 
+ install-man:
+-	for i in ttt tttprobe tttview; do \
+-		$(INSTALL) -m 444 -o bin -g bin $$i.1 \
+-			    $(mandir)/man1; \
+-	done
++	$(INSTALL) -d -m 0755 $(DESTDIR)$(mandir)/man1
++	$(INSTALL) -m 0644 ttt.1 $(DESTDIR)$(mandir)/man1
++	$(INSTALL) -m 0644 tttprobe.1 $(DESTDIR)$(mandir)/man1
++	$(INSTALL) -m 0644 tttview.1 $(DESTDIR)$(mandir)/man1
+ 
+ clean:
+ 	$(RM) $(PROG) $(EXTRA_PROG) *.o core *.core *.bak *\~ "#"* .pure*
+-- 
+2.3.6
+
