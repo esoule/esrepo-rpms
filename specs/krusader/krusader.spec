@@ -1,6 +1,11 @@
 
 ## Compile Krusader in debug mode
 %define _kde4_buildtype debugfull
+%if 0%{?rhel} && 0%{?rhel} <= 6
+%global kde43_krun_patch     1
+%else
+%global kde43_krun_patch     0
+%endif
 
 Name:		krusader
 Version:	2.4.0
@@ -48,7 +53,9 @@ friendly, fast and looks great on your desktop! You should give it a try.
 %setup -q -n %{name}-%{version}%{?beta:-%{beta}}
 %patch0 -p1 -b .mimetypes
 %patch1 -p1 -b .generate-manpage
+%if %{kde43_krun_patch}
 %patch2 -p1 -b .kde-4.3.4-krun
+%endif
 ## upstream patches
 %patch100 -p1 -b .kde#309159
 
@@ -114,6 +121,11 @@ rm -rf %{buildroot}
 %{_mandir}/man1/krusader.1.gz
 
 %changelog
+* Thu Jul 23 2015 Evgueni Souleimanov <esoule@100500.ca> - 2.4.0-0.10.beta3.0.4
+- Rebuilt for EL7
+- Drop krusader-2.4.0-beta3-kde-4.3.4-krun.patch for EL7
+- Fix bogus dates in RPM changelog
+
 * Fri Jul 25 2014 Evgueni Souleimanov <esoule@100500.ca> - 2.4.0-0.10.beta3.0.3
 - Fix compilation problem with kdelibs-devel-4.3.4 on CentOS 6.4
 - Build Krusader in debug mode
@@ -286,7 +298,7 @@ rm -rf %{buildroot}
 * Fri Dec 17 2004 Marcin Garski <mgarski[AT]post.pl> 1.51.fc2kde331
 - Updated to version 1.51
 
-* Sat Nov 11 2004 Marcin Garski <mgarski[AT]post.pl> 1.50.fc2kde331
+* Thu Nov 11 2004 Marcin Garski <mgarski[AT]post.pl> 1.50.fc2kde331
 - Added Requires:
 
 * Tue Nov 02 2004 Marcin Garski <mgarski[AT]post.pl> 1.50.fc2
@@ -304,5 +316,5 @@ rm -rf %{buildroot}
 * Mon Nov 17 2003 11:05:00 Marian POPESCU <softexpert[AT]libertysurf.fr> [1.30]
 - Updated to 1.30 release + changed description to match the official one
 
-* Tue Jul 03 2003 17:00:00 Marcin Garski <mgarski[AT]post.pl> [1.20]
+* Thu Jul 03 2003 17:00:00 Marcin Garski <mgarski[AT]post.pl> [1.20]
 - Initial specfile
