@@ -1,6 +1,6 @@
 Name:		coan
 Version:	5.2
-Release:	2.1%{?dist}
+Release:	2.2%{?dist}
 Summary:	A command line tool for simplifying the pre-processor conditionals in source code
 Group:		Development/Languages
 License:	BSD
@@ -15,8 +15,6 @@ Patch1:         coan-man-double-gzip.patch
 Provides:	sunifdef = %{version}-%{release}
 Obsoletes:	sunifdef < 4.0
 
-BuildRequires:  autoconf
-BuildRequires:  automake
 BuildRequires:  findutils
 
 %description
@@ -37,19 +35,27 @@ redundant #if-logic from the code.
 %setup -q
 
 for i in AUTHORS LICENSE.BSD README ChangeLog ; do
-    sed -i -e 's/\r$//' $i
+    mv $i $i.orig
+    sed -e 's/\r$//' $i.orig >$i
+    touch --reference $i.orig $i
 done
 
-for i in ./Makefile.am ./man/Makefile.am ./test_coan/README ; do
-    sed -i -e 's/\r$//' $i
+for i in ./Makefile.am ./man/Makefile.am ./man/Makefile.in ./test_coan/README ; do
+    mv $i $i.orig
+    sed -e 's/\r$//' $i.orig >$i
+    touch --reference $i.orig $i
 done
 
 find ./test_coan/test_cases \( -name '*.c' -o -name '*.c.expect' \) | xargs -n 1 sed -i -e 's/\r$//'
 
 %patch1 -p1
 
+## restore timestamps after the patch to avoid triggering automake during configure
+for i in ./Makefile.am ./man/Makefile.am ./man/Makefile.in ./test_coan/README ; do
+    touch --reference $i.orig $i
+done
+
 %build
-autoreconf -f
 %configure
 make %{?_smp_mflags}
 
@@ -65,6 +71,11 @@ make install DESTDIR=$RPM_BUILD_ROOT INSTALL="install -p"
 %{_mandir}/man1/%{name}.1.*
 
 %changelog
+* Thu Jul 23 2015 Evgueni Souleimanov <esoule@100500.ca> - 5.2-2.2
+- drop autoconf build dependency
+- fix double gzip of manpage coan.1.1 by patching makefiles
+- rebuild for EL7
+
 * Mon Jun 23 2014 Evgueni Souleimanov <esoule@100500.ca> - 5.2-2.1
 - fix double gzip of manpage coan.1.1
 - convert CRLF line terminators to LF in tests, makefiles
