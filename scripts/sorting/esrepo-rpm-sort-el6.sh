@@ -7,14 +7,17 @@ function guess_repo_name()
     local filename=$1
     local repo_name
     case $filename in
-        fsarchiver-*|coan-*|k4dirstat-*|krusader-*|rtems-4.6-*|mtd-utils-*|unifdef-*|os-tweaks*)
+        fsarchiver-*|coan-*|k4dirstat-*|krusader-*|rtems-4.6au-*|rtems-4.6-*|mtd-utils-*|unifdef-*|os-tweaks*|esrepo-release-*)
             repo_name=main
             ;;
         ccache-*|firstinst*|freetype-*|emacs-git-*|git-*|gitk-*|gitweb-*|perl-Git-*|livesys*|minicom-*|squashfs-tools-*|wine-*|vim-*|wireshark-*)
             repo_name=extras
             ;;
-        cppunit*)
+        cppunit*|cproto*|keepalived*|quilt*|rtems-4.6ng6-*|rtems-4.6ng10-*|rtems-4.6ng11-*)
             repo_name=testing
+            ;;
+        crosstool-build-filesystem-*|re*fonts*)
+            repo_name=internal
             ;;
         *)
             repo_name=invalidreponame
