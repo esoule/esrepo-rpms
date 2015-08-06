@@ -1,5 +1,7 @@
 #!/bin/sh
 
+releasever=6
+
 function guess_repo_name()
 {
     local filename=$1
@@ -82,8 +84,8 @@ function do_rpm_sort()
         local repo_name=`guess_repo_name $filename_base`
         local debuginfo_section_name=`guess_debug_info_section $filename_base`
         local binary_rpm_section_name=`guess_binary_rpm_section $arch_name $filename_base`
-        mkdir -v -p $repo_name/$debuginfo_section_name/centos/6/$binary_rpm_section_name
-        cp -v --no-clobber $filename $repo_name/$debuginfo_section_name/centos/6/$binary_rpm_section_name/$filename_base
+        mkdir -v -p out/$repo_name/$debuginfo_section_name/centos/$releasever/$binary_rpm_section_name
+        cp -v --no-clobber $filename out/$repo_name/$debuginfo_section_name/centos/$releasever/$binary_rpm_section_name/$filename_base
     done
 }
 
