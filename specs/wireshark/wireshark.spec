@@ -246,11 +246,11 @@ export LDFLAGS="$LDFLAGS -lm -lcrypto -pie"
 
 %configure \
    --bindir=%{_sbindir} \
-   --enable-zlib \
+   --with-zlib \
    --enable-ipv6 \
    --with-libsmi \
    --with-gnu-ld \
-   --enable-gtk2 \
+   --with-gtk3=no \
    --with-pic \
 %if %{with_adns}
    --with-adns \
@@ -269,8 +269,8 @@ export LDFLAGS="$LDFLAGS -lm -lcrypto -pie"
 %endif
    --with-ssl \
    --disable-warnings-as-errors \
-   --with-plugindir=%{_libdir}/%{name}/plugins/%{version} \
-   --enable-aircap
+   --with-plugins=%{_libdir}/%{name}/plugins/%{version} \
+   --enable-airpcap
 
 # Remove rpath
 sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
