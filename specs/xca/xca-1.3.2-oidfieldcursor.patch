@@ -1,0 +1,13 @@
+diff -Naurp xca-1.3.2.orig/widgets/OidResolver.cpp xca-1.3.2.new/widgets/OidResolver.cpp
+--- xca-1.3.2.orig/widgets/OidResolver.cpp	2015-10-10 14:54:12.000000000 +0200
++++ xca-1.3.2.new/widgets/OidResolver.cpp	2015-10-19 12:22:10.035130081 +0200
+@@ -23,7 +23,8 @@ void OidResolver::searchOid(QString s)
+ 	bool ok;
+ 	int n;
+ 
+-	input->setText(s);
++	if (input->text() != s)		// Avoid moving the cursor at end if unchanged.
++		input->setText(s);
+ 	s = s.trimmed();
+ 	n = s.toUInt(&ok);
+ 	if (!ok)
