@@ -10,10 +10,10 @@ function guess_repo_name()
         fsarchiver-*|coan-*|k4dirstat-*|krusader-*|rtems-4.6au-*|rtems-4.6-*|mtd-utils-*|unifdef-*|os-tweaks*|ttt-*|esrepo-release-*)
             repo_name=main
             ;;
-        ccache-*|firstinst*|freetype-*|emacs-git-*|git-*|gitk-*|gitweb-*|perl-Git-*|livesys*|minicom-*|squashfs-tools-*|wine-*|vim-*|wireshark-*)
+        ccache-*|cppunit*|firstinst*|freetype-*|emacs-git-*|git-*|gitk-*|gitweb-*|perl-Git-*|livesys*|minicom-*|squashfs-tools-*|wine-*|vim-*|wireshark-*)
             repo_name=extras
             ;;
-        cppunit*|cproto*|keepalived*|quilt*|rtems-4.6ng6-*|rtems-4.6ng10-*|rtems-4.6ng11-*)
+        cproto*|keepalived*|quilt*|rtems-4.6ng6-*|rtems-4.6ng10-*|rtems-4.6ng11-*)
             repo_name=testing
             ;;
         crosstool-build-filesystem-*|re*fonts*)
