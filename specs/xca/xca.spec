@@ -1,11 +1,12 @@
 Summary:	Graphical X.509 certificate management tool
 Name:		xca
 Version:	1.3.2
-Release:	1%{?dist}
+Release:	1.1.1%{?dist}
 License:	BSD
 Group:		Applications/Productivity
 URL:		http://xca.hohnstaedt.de/
 Source0:	http://downloads.sourceforge.net/sourceforge/xca/%{version}/%{name}-%{version}.tar.gz
+Source100:	xca.desktop
 Patch1:		xca-1.3.2-oidfieldcursor.patch
 BuildRequires:	qt4-devel openssl-devel
 BuildRequires:	xdg-utils
@@ -71,6 +72,10 @@ install -p -m 644 misc/xca.xml "${RPM_BUILD_ROOT}%{_datadir}/mime/packages/"
 
 export XDG_DATA_DIRS="${RPM_BUILD_ROOT}%{_datadir}"
 export XDG_UTILS_INSTALL_MODE=system
+### turn off icon install for KDE, it does not work inside mock RPM
+### builds, because it tries to install icons to /hicolor and similar
+### directories.
+export KDE_SESSION_VERSION=NONE
 
 xdg-icon-resource install --noupdate --context mimetypes		\
 	--size 32 xdb.png application-x-xca-database
@@ -80,13 +85,14 @@ xdg-icon-resource install --noupdate --size 32 xca.png fedora-xca
 rm -rf "${RPM_BUILD_ROOT}%{_datadir}/pixmaps/xca-32x32.xpm"
 cp -a img/key.xpm "${RPM_BUILD_ROOT}%{_datadir}/pixmaps/xca.xpm"
 
+#	Substitute our own xca.desktop
+rm -f "${RPM_BUILD_ROOT}%{_datadir}/applications/xca.desktop"
+
 desktop-file-install --mode 0644			\
 	--dir "${RPM_BUILD_ROOT}%{_datadir}/applications"		\
-	--delete-original						\
 	--add-mime-type application/x-xca-database			\
 	--remove-category QT						\
-	--set-icon=xca							\
-	"${RPM_BUILD_ROOT}%{_datadir}/applications/xca.desktop"
+	%{SOURCE100}
 
 #	Will build the doc directory ourself.
 
@@ -154,6 +160,9 @@ fi
 #-------------------------------------------------------------------------------
 %changelog
 #-------------------------------------------------------------------------------
+
+* Wed Nov 18 2015 Evgueni Souleimanov <esoule@100500.ca> - 1.3.2-1.1.1
+- fix desktop and icon file install under CentOS 6.7
 
 * Mon Oct 26 2015 Patrick Monnerat <patrick.monnerat@dh.com> 1.3.2-1
 - New upstream release.
