@@ -1,0 +1,2463 @@
+diff --git a/acinclude.m4 b/acinclude.m4
+index 89c5573..6d9f8d7 100644
+--- a/acinclude.m4
++++ b/acinclude.m4
+@@ -615,7 +615,7 @@ install a newer version of the header file.])
+ 	  AC_CHECK_FUNCS(pcap_datalink_val_to_description)
+ 	  AC_CHECK_FUNCS(pcap_list_datalinks pcap_set_datalink pcap_lib_version)
+ 	  AC_CHECK_FUNCS(pcap_get_selectable_fd pcap_free_datalinks)
+-	  AC_CHECK_FUNCS(pcap_create bpf_image)
++	  AC_CHECK_FUNCS(pcap_create bpf_image pcap_set_tstamp_precision)
+ 	fi
+ 	LIBS="$ac_save_LIBS"
+ ])
+diff --git a/cmake/modules/FindPCAP.cmake b/cmake/modules/FindPCAP.cmake
+index cab4a7b..1cc5747 100644
+--- a/cmake/modules/FindPCAP.cmake
++++ b/cmake/modules/FindPCAP.cmake
+@@ -121,6 +121,7 @@ CHECK_FUNCTION_EXISTS("pcap_get_selectable_fd" HAVE_PCAP_GET_SELECTABLE_FD)
+ CHECK_FUNCTION_EXISTS("pcap_lib_version" HAVE_PCAP_LIB_VERSION)
+ CHECK_FUNCTION_EXISTS("pcap_list_datalinks" HAVE_PCAP_LIST_DATALINKS)
+ CHECK_FUNCTION_EXISTS("pcap_set_datalink" HAVE_PCAP_SET_DATALINK)
++CHECK_FUNCTION_EXISTS("pcap_set_tstamp_precision" HAVE_PCAP_SET_TSTAMP_PRECISION)
+ # Remote pcap checks
+ CHECK_FUNCTION_EXISTS("pcap_open" H_PCAP_OPEN)
+ CHECK_FUNCTION_EXISTS("pcap_findalldevs_ex" H_FINDALLDEVS_EX)
+diff --git a/cmakeconfig.h.in b/cmakeconfig.h.in
+index 8578ef0..e667282 100644
+--- a/cmakeconfig.h.in
++++ b/cmakeconfig.h.in
+@@ -231,6 +231,9 @@
+ #cmakedefine HAVE_PCAP_REMOTE 1
+ #cmakedefine HAVE_REMOTE 1
+ 
++/* Define to 1 if you have the `pcap_set_tstamp_precision' function. */
++#cmakedefine HAVE_PCAP_SET_TSTAMP_PRECISION 1
++
+ /* Define to 1 if you have the <portaudio.h> header file. */
+ #cmakedefine HAVE_PORTAUDIO_H 1
+ 
+diff --git a/dumpcap.c b/dumpcap.c
+index 9ddaeb5..fe4cc80 100644
+--- a/dumpcap.c
++++ b/dumpcap.c
+@@ -606,7 +606,12 @@ relinquish_all_capabilities(void)
+ #endif
+ 
+ static pcap_t *
+-open_capture_device(interface_options *interface_opts,
++open_capture_device(capture_options *capture_opts
++#ifndef HAVE_PCAP_SET_TSTAMP_PRECISION
++                    _U_
++#endif
++                    ,
++                    interface_options *interface_opts,
+                     char (*open_err_str)[PCAP_ERRBUF_SIZE])
+ {
+     pcap_t *pcap_h;
+@@ -679,6 +684,31 @@ open_capture_device(interface_options *interface_opts,
+             pcap_set_promisc(pcap_h, interface_opts->promisc_mode);
+             pcap_set_timeout(pcap_h, CAP_READ_TIMEOUT);
+ 
++#ifdef HAVE_PCAP_SET_TSTAMP_PRECISION
++            /*
++             * If we're writing pcap-ng files, try to enable
++             * nanosecond-resolution capture; any code that
++             * can read pcap-ng files must be able to handle
++             * nanosecond-resolution time stamps.
++             *
++             * If we're writing pcap files, don't try to enable
++             * nanosecond-resolution capture, as not all code
++             * that reads pcap files recognizes the nanosecond-
++             * resolution pcap file magic number.
++             */
++            if (capture_opts->use_pcapng) {
++                /*
++                 * The only errors this is documenting as returning
++                 * are PCAP_ERROR_TSTAMP_PRECISION_NOTSUP, which just
++                 * means we can't do nanosecond precision on this adapter,
++                 * in which case we just live with whatever resolution
++                 * we get by default, and PCAP_ERROR_ACTIVATED, which
++                 * can't happen as we haven't activated the pcap_t yet.
++                 */
++                pcap_set_tstamp_precision(pcap_h, PCAP_TSTAMP_PRECISION_NANO);
++            }
++#endif
++
+             g_log(LOG_DOMAIN_CAPTURE_CHILD, G_LOG_LEVEL_DEBUG,
+                   "buffersize %d.", interface_opts->buffer_size);
+             if (interface_opts->buffer_size != 0) {
+@@ -878,7 +908,7 @@ show_filter_code(capture_options *capture_opts)
+ 
+     for (j = 0; j < capture_opts->ifaces->len; j++) {
+         interface_opts = g_array_index(capture_opts->ifaces, interface_options, j);
+-        pcap_h = open_capture_device(&interface_opts, &open_err_str);
++        pcap_h = open_capture_device(capture_opts, &interface_opts, &open_err_str);
+         if (pcap_h == NULL) {
+             /* Open failed; get messages */
+             get_capture_device_open_failure_messages(open_err_str,
+@@ -2445,10 +2475,16 @@ capture_loop_open_input(capture_options *capture_opts, loop_data *ld,
+         g_array_append_val(ld->pcaps, pcap_opts);
+ 
+         g_log(LOG_DOMAIN_CAPTURE_CHILD, G_LOG_LEVEL_DEBUG, "capture_loop_open_input : %s", interface_opts.name);
+-        pcap_opts->pcap_h = open_capture_device(&interface_opts, &open_err_str);
++        pcap_opts->pcap_h = open_capture_device(capture_opts, &interface_opts, &open_err_str);
+ 
+         if (pcap_opts->pcap_h != NULL) {
+             /* we've opened "iface" as a network device */
++
++#ifdef HAVE_PCAP_SET_TSTAMP_PRECISION
++        /* Find out if we're getting nanosecond-precision time stamps */
++        pcap_opts->ts_nsec = pcap_get_tstamp_precision(pcap_opts->pcap_h) == PCAP_TSTAMP_PRECISION_NANO;
++#endif
++
+ #ifdef _WIN32
+             /* try to set the capture buffer size */
+             if (interface_opts.buffer_size > 1 &&
+diff --git a/editcap.c b/editcap.c
+index cba071d..cc3b161 100644
+--- a/editcap.c
++++ b/editcap.c
+@@ -96,7 +96,6 @@ fd_hash_t fd_hash[MAX_DUP_DEPTH];
+ int dup_window = DEFAULT_DUP_DEPTH;
+ int cur_dup_entry = 0;
+ 
+-#define ONE_MILLION 1000000
+ #define ONE_BILLION 1000000000
+ 
+ /* Weights of different errors we can introduce */
+@@ -114,7 +113,7 @@ int cur_dup_entry = 0;
+ 
+ 
+ struct time_adjustment {
+-  struct timeval tv;
++  nstime_t tv;
+   int is_negative;
+ };
+ 
+@@ -339,18 +338,18 @@ set_time_adjustment(char *optarg_str_p)
+           exit(1);
+       }
+   }
+-  time_adj.tv.tv_sec = val;
++  time_adj.tv.secs = val;
+ 
+   /* now collect the partial seconds, if any */
+   if (*frac != '\0') {             /* chars left, so get fractional part */
+     val = strtol(&(frac[1]), &end, 10);
+-    /* if more than 6 fractional digits truncate to 6 */
+-    if((end - &(frac[1])) > 6) {
+-        frac[7] = 't'; /* 't' for truncate */
++    /* if more than 9 fractional digits truncate to 9 */
++    if((end - &(frac[1])) > 9) {
++        frac[10] = 't'; /* 't' for truncate */
+         val = strtol(&(frac[1]), &end, 10);
+     }
+     if (*frac != '.' || end == NULL || end == frac
+-        || val < 0 || val > ONE_MILLION || val == LONG_MIN || val == LONG_MAX) {
++        || val < 0 || val > ONE_BILLION || val == LONG_MIN || val == LONG_MAX) {
+       fprintf(stderr, "editcap: \"%s\" isn't a valid time adjustment\n",
+               optarg_str_p);
+       exit(1);
+@@ -361,15 +360,15 @@ set_time_adjustment(char *optarg_str_p)
+   }
+ 
+   /* adjust fractional portion from fractional to numerator
+-   * e.g., in "1.5" from 5 to 500000 since .5*10^6 = 500000 */
++   * e.g., in "1.5" from 5 to 500000000 since .5*10^9 = 500000000 */
+   if (frac && end) {            /* both are valid */
+     frac_digits = end - frac - 1;   /* fractional digit count (remember '.') */
+-    while(frac_digits < 6) {    /* this is frac of 10^6 */
++    while(frac_digits < 9) {    /* this is frac of 10^9 */
+       val *= 10;
+       frac_digits++;
+     }
+   }
+-  time_adj.tv.tv_usec = val;
++  time_adj.tv.nsecs = (int) val;
+ }
+ 
+ static void
+@@ -414,18 +413,18 @@ set_strict_time_adj(char *optarg_str_p)
+           exit(1);
+       }
+   }
+-  strict_time_adj.tv.tv_sec = val;
++  strict_time_adj.tv.secs = val;
+ 
+   /* now collect the partial seconds, if any */
+   if (*frac != '\0') {             /* chars left, so get fractional part */
+     val = strtol(&(frac[1]), &end, 10);
+-    /* if more than 6 fractional digits truncate to 6 */
+-    if((end - &(frac[1])) > 6) {
+-        frac[7] = 't'; /* 't' for truncate */
++    /* if more than 9 fractional digits truncate to 9 */
++    if((end - &(frac[1])) > 9) {
++        frac[10] = 't'; /* 't' for truncate */
+         val = strtol(&(frac[1]), &end, 10);
+     }
+     if (*frac != '.' || end == NULL || end == frac
+-        || val < 0 || val > ONE_MILLION || val == LONG_MIN || val == LONG_MAX) {
++        || val < 0 || val > ONE_BILLION || val == LONG_MIN || val == LONG_MAX) {
+       fprintf(stderr, "editcap: \"%s\" isn't a valid time adjustment\n",
+               optarg_str_p);
+       exit(1);
+@@ -436,15 +435,15 @@ set_strict_time_adj(char *optarg_str_p)
+   }
+ 
+   /* adjust fractional portion from fractional to numerator
+-   * e.g., in "1.5" from 5 to 500000 since .5*10^6 = 500000 */
++   * e.g., in "1.5" from 5 to 500000000 since .5*10^9 = 500000000 */
+   if (frac && end) {            /* both are valid */
+     frac_digits = end - frac - 1;   /* fractional digit count (remember '.') */
+-    while(frac_digits < 6) {    /* this is frac of 10^6 */
++    while(frac_digits < 9) {    /* this is frac of 10^9 */
+       val *= 10;
+       frac_digits++;
+     }
+   }
+-  strict_time_adj.tv.tv_usec = val;
++  strict_time_adj.tv.nsecs = (int) val;
+ }
+ 
+ static void
+@@ -1290,14 +1289,14 @@ main(int argc, char *argv[])
+                  */
+                 /* printf("++out of order, need to adjust this packet!\n"); */
+                 snap_phdr = *phdr;
+-                snap_phdr.ts.secs = previous_time.secs + strict_time_adj.tv.tv_sec;
++                snap_phdr.ts.secs = previous_time.secs + strict_time_adj.tv.secs;
+                 snap_phdr.ts.nsecs = previous_time.nsecs;
+-                if (snap_phdr.ts.nsecs + strict_time_adj.tv.tv_usec * 1000 > ONE_MILLION * 1000) {
++                if (snap_phdr.ts.nsecs + strict_time_adj.tv.nsecs > ONE_BILLION) {
+                   /* carry */
+                   snap_phdr.ts.secs++;
+-                  snap_phdr.ts.nsecs += (strict_time_adj.tv.tv_usec - ONE_MILLION) * 1000;
++                  snap_phdr.ts.nsecs += strict_time_adj.tv.nsecs - ONE_BILLION;
+                 } else {
+-                  snap_phdr.ts.nsecs += strict_time_adj.tv.tv_usec * 1000;
++                  snap_phdr.ts.nsecs += strict_time_adj.tv.nsecs;
+                 }
+                 phdr = &snap_phdr;
+               }
+@@ -1308,14 +1307,14 @@ main(int argc, char *argv[])
+                * packet's timestamp plus delta.
+                */
+               snap_phdr = *phdr;
+-              snap_phdr.ts.secs = previous_time.secs + strict_time_adj.tv.tv_sec;
++              snap_phdr.ts.secs = previous_time.secs + strict_time_adj.tv.secs;
+               snap_phdr.ts.nsecs = previous_time.nsecs;
+-              if (snap_phdr.ts.nsecs + strict_time_adj.tv.tv_usec * 1000 > ONE_MILLION * 1000) {
++              if (snap_phdr.ts.nsecs + strict_time_adj.tv.nsecs > ONE_BILLION) {
+                 /* carry */
+                 snap_phdr.ts.secs++;
+-                snap_phdr.ts.nsecs += (strict_time_adj.tv.tv_usec - ONE_MILLION) * 1000;
++                snap_phdr.ts.nsecs += strict_time_adj.tv.nsecs - ONE_BILLION;
+               } else {
+-                snap_phdr.ts.nsecs += strict_time_adj.tv.tv_usec * 1000;
++                snap_phdr.ts.nsecs += strict_time_adj.tv.nsecs;
+               }
+               phdr = &snap_phdr;
+             }
+@@ -1326,32 +1325,32 @@ main(int argc, char *argv[])
+ 
+         /* assume that if the frame's tv_sec is 0, then
+          * the timestamp isn't supported */
+-        if (phdr->ts.secs > 0 && time_adj.tv.tv_sec != 0) {
++        if (phdr->ts.secs > 0 && time_adj.tv.secs != 0) {
+           snap_phdr = *phdr;
+           if (time_adj.is_negative)
+-            snap_phdr.ts.secs -= time_adj.tv.tv_sec;
++            snap_phdr.ts.secs -= time_adj.tv.secs;
+           else
+-            snap_phdr.ts.secs += time_adj.tv.tv_sec;
++            snap_phdr.ts.secs += time_adj.tv.secs;
+           phdr = &snap_phdr;
+         }
+ 
+         /* assume that if the frame's tv_sec is 0, then
+          * the timestamp isn't supported */
+-        if (phdr->ts.secs > 0 && time_adj.tv.tv_usec != 0) {
++        if (phdr->ts.secs > 0 && time_adj.tv.nsecs != 0) {
+           snap_phdr = *phdr;
+           if (time_adj.is_negative) { /* subtract */
+-            if (snap_phdr.ts.nsecs/1000 < time_adj.tv.tv_usec) { /* borrow */
++            if (snap_phdr.ts.nsecs < time_adj.tv.nsecs) { /* borrow */
+               snap_phdr.ts.secs--;
+-              snap_phdr.ts.nsecs += ONE_MILLION * 1000;
++              snap_phdr.ts.nsecs += ONE_BILLION;
+             }
+-            snap_phdr.ts.nsecs -= time_adj.tv.tv_usec * 1000;
++            snap_phdr.ts.nsecs -= time_adj.tv.nsecs;
+           } else {                  /* add */
+-            if (snap_phdr.ts.nsecs + time_adj.tv.tv_usec * 1000 > ONE_MILLION * 1000) {
++            if (snap_phdr.ts.nsecs + time_adj.tv.nsecs > ONE_BILLION) {
+               /* carry */
+               snap_phdr.ts.secs++;
+-              snap_phdr.ts.nsecs += (time_adj.tv.tv_usec - ONE_MILLION) * 1000;
++              snap_phdr.ts.nsecs += time_adj.tv.nsecs - ONE_BILLION;
+             } else {
+-              snap_phdr.ts.nsecs += time_adj.tv.tv_usec * 1000;
++              snap_phdr.ts.nsecs += time_adj.tv.nsecs;
+             }
+           }
+           phdr = &snap_phdr;
+diff --git a/epan/column-utils.c b/epan/column-utils.c
+index ee95d94..aeef94f 100644
+--- a/epan/column-utils.c
++++ b/epan/column-utils.c
+@@ -625,6 +625,7 @@ set_abs_date_time(const frame_data *fd, gchar *buf, gboolean local)
+ {
+   struct tm *tmp;
+   time_t then;
++  int tsprecision;
+ 
+   if (fd->flags.has_ts) {
+     then = fd->abs_ts.secs;
+@@ -635,9 +636,33 @@ set_abs_date_time(const frame_data *fd, gchar *buf, gboolean local)
+   } else
+     tmp = NULL;
+   if (tmp != NULL) {
+-      switch(timestamp_get_precision()) {
+-      case TS_PREC_FIXED_SEC:
+-      case TS_PREC_AUTO_SEC:
++      switch (timestamp_get_precision()) {
++        case TS_PREC_FIXED_SEC:
++            tsprecision = WTAP_TSPREC_SEC;
++            break;
++        case TS_PREC_FIXED_DSEC:
++            tsprecision = WTAP_TSPREC_DSEC;
++            break;
++        case TS_PREC_FIXED_CSEC:
++            tsprecision = WTAP_TSPREC_CSEC;
++            break;
++        case TS_PREC_FIXED_MSEC:
++            tsprecision = WTAP_TSPREC_MSEC;
++            break;
++        case TS_PREC_FIXED_USEC:
++            tsprecision = WTAP_TSPREC_USEC;
++            break;
++        case TS_PREC_FIXED_NSEC:
++            tsprecision = WTAP_TSPREC_NSEC;
++            break;
++        case TS_PREC_AUTO:
++            tsprecision = fd->tsprec;
++            break;
++        default:
++            g_assert_not_reached();
++      }
++      switch(tsprecision) {
++      case WTAP_TSPREC_SEC:
+           g_snprintf(buf, COL_MAX_LEN,"%04d-%02d-%02d %02d:%02d:%02d",
+              tmp->tm_year + 1900,
+              tmp->tm_mon + 1,
+@@ -646,8 +671,7 @@ set_abs_date_time(const frame_data *fd, gchar *buf, gboolean local)
+              tmp->tm_min,
+              tmp->tm_sec);
+           break;
+-      case TS_PREC_FIXED_DSEC:
+-      case TS_PREC_AUTO_DSEC:
++      case WTAP_TSPREC_DSEC:
+           g_snprintf(buf, COL_MAX_LEN,"%04d-%02d-%02d %02d:%02d:%02d.%01ld",
+              tmp->tm_year + 1900,
+              tmp->tm_mon + 1,
+@@ -657,8 +681,7 @@ set_abs_date_time(const frame_data *fd, gchar *buf, gboolean local)
+              tmp->tm_sec,
+              (long)fd->abs_ts.nsecs / 100000000);
+           break;
+-      case TS_PREC_FIXED_CSEC:
+-      case TS_PREC_AUTO_CSEC:
++      case WTAP_TSPREC_CSEC:
+           g_snprintf(buf, COL_MAX_LEN,"%04d-%02d-%02d %02d:%02d:%02d.%02ld",
+              tmp->tm_year + 1900,
+              tmp->tm_mon + 1,
+@@ -668,8 +691,7 @@ set_abs_date_time(const frame_data *fd, gchar *buf, gboolean local)
+              tmp->tm_sec,
+              (long)fd->abs_ts.nsecs / 10000000);
+           break;
+-      case TS_PREC_FIXED_MSEC:
+-      case TS_PREC_AUTO_MSEC:
++      case WTAP_TSPREC_MSEC:
+           g_snprintf(buf, COL_MAX_LEN, "%04d-%02d-%02d %02d:%02d:%02d.%03ld",
+              tmp->tm_year + 1900,
+              tmp->tm_mon + 1,
+@@ -679,8 +701,7 @@ set_abs_date_time(const frame_data *fd, gchar *buf, gboolean local)
+              tmp->tm_sec,
+              (long)fd->abs_ts.nsecs / 1000000);
+           break;
+-      case TS_PREC_FIXED_USEC:
+-      case TS_PREC_AUTO_USEC:
++      case WTAP_TSPREC_USEC:
+           g_snprintf(buf, COL_MAX_LEN, "%04d-%02d-%02d %02d:%02d:%02d.%06ld",
+              tmp->tm_year + 1900,
+              tmp->tm_mon + 1,
+@@ -690,8 +711,7 @@ set_abs_date_time(const frame_data *fd, gchar *buf, gboolean local)
+              tmp->tm_sec,
+              (long)fd->abs_ts.nsecs / 1000);
+           break;
+-      case TS_PREC_FIXED_NSEC:
+-      case TS_PREC_AUTO_NSEC:
++      case WTAP_TSPREC_NSEC:
+           g_snprintf(buf, COL_MAX_LEN, "%04d-%02d-%02d %02d:%02d:%02d.%09ld",
+              tmp->tm_year + 1900,
+              tmp->tm_mon + 1,
+@@ -730,36 +750,57 @@ col_set_utc_date_time(const frame_data *fd, column_info *cinfo, const int col)
+ }
+ 
+ static void
+-set_time_seconds(const nstime_t *ts, gchar *buf)
++set_time_seconds(const frame_data *fd, const nstime_t *ts, gchar *buf)
+ {
+-  switch(timestamp_get_precision()) {
+-      case TS_PREC_FIXED_SEC:
+-      case TS_PREC_AUTO_SEC:
++  int tsprecision;
++
++  switch (timestamp_get_precision()) {
++  case TS_PREC_FIXED_SEC:
++      tsprecision = WTAP_TSPREC_SEC;
++      break;
++  case TS_PREC_FIXED_DSEC:
++      tsprecision = WTAP_TSPREC_DSEC;
++      break;
++  case TS_PREC_FIXED_CSEC:
++      tsprecision = WTAP_TSPREC_CSEC;
++      break;
++  case TS_PREC_FIXED_MSEC:
++      tsprecision = WTAP_TSPREC_MSEC;
++      break;
++  case TS_PREC_FIXED_USEC:
++      tsprecision = WTAP_TSPREC_USEC;
++      break;
++  case TS_PREC_FIXED_NSEC:
++      tsprecision = WTAP_TSPREC_NSEC;
++      break;
++  case TS_PREC_AUTO:
++      tsprecision = fd->tsprec;
++      break;
++  default:
++      g_assert_not_reached();
++  }
++  switch(tsprecision) {
++      case WTAP_TSPREC_SEC:
+           display_signed_time(buf, COL_MAX_LEN,
+             (gint32) ts->secs, ts->nsecs / 1000000000, TO_STR_TIME_RES_T_SECS);
+           break;
+-      case TS_PREC_FIXED_DSEC:
+-      case TS_PREC_AUTO_DSEC:
++      case WTAP_TSPREC_DSEC:
+           display_signed_time(buf, COL_MAX_LEN,
+             (gint32) ts->secs, ts->nsecs / 100000000, TO_STR_TIME_RES_T_DSECS);
+           break;
+-      case TS_PREC_FIXED_CSEC:
+-      case TS_PREC_AUTO_CSEC:
++      case WTAP_TSPREC_CSEC:
+           display_signed_time(buf, COL_MAX_LEN,
+             (gint32) ts->secs, ts->nsecs / 10000000, TO_STR_TIME_RES_T_CSECS);
+           break;
+-      case TS_PREC_FIXED_MSEC:
+-      case TS_PREC_AUTO_MSEC:
++      case WTAP_TSPREC_MSEC:
+           display_signed_time(buf, COL_MAX_LEN,
+             (gint32) ts->secs, ts->nsecs / 1000000, TO_STR_TIME_RES_T_MSECS);
+           break;
+-      case TS_PREC_FIXED_USEC:
+-      case TS_PREC_AUTO_USEC:
++      case WTAP_TSPREC_USEC:
+           display_signed_time(buf, COL_MAX_LEN,
+             (gint32) ts->secs, ts->nsecs / 1000, TO_STR_TIME_RES_T_USECS);
+           break;
+-      case TS_PREC_FIXED_NSEC:
+-      case TS_PREC_AUTO_NSEC:
++      case WTAP_TSPREC_NSEC:
+           display_signed_time(buf, COL_MAX_LEN,
+             (gint32) ts->secs, ts->nsecs, TO_STR_TIME_RES_T_NSECS);
+           break;
+@@ -769,11 +810,12 @@ set_time_seconds(const nstime_t *ts, gchar *buf)
+ }
+ 
+ static void
+-set_time_hour_min_sec(const nstime_t *ts, gchar *buf)
++set_time_hour_min_sec(const frame_data *fd, const nstime_t *ts, gchar *buf)
+ {
+   time_t secs = ts->secs;
+   long nsecs = (long) ts->nsecs;
+   gboolean negative = FALSE;
++  int tsprecision;
+ 
+   if (secs < 0) {
+     secs = -secs;
+@@ -784,9 +826,33 @@ set_time_hour_min_sec(const nstime_t *ts, gchar *buf)
+     negative = TRUE;
+   }
+ 
+-  switch(timestamp_get_precision()) {
+-  case TS_PREC_FIXED_SEC:
+-  case TS_PREC_AUTO_SEC:
++  switch (timestamp_get_precision()) {
++    case TS_PREC_FIXED_SEC:
++        tsprecision = WTAP_TSPREC_SEC;
++        break;
++    case TS_PREC_FIXED_DSEC:
++        tsprecision = WTAP_TSPREC_DSEC;
++        break;
++    case TS_PREC_FIXED_CSEC:
++        tsprecision = WTAP_TSPREC_CSEC;
++        break;
++    case TS_PREC_FIXED_MSEC:
++        tsprecision = WTAP_TSPREC_MSEC;
++        break;
++    case TS_PREC_FIXED_USEC:
++        tsprecision = WTAP_TSPREC_USEC;
++        break;
++    case TS_PREC_FIXED_NSEC:
++        tsprecision = WTAP_TSPREC_NSEC;
++        break;
++    case TS_PREC_AUTO:
++        tsprecision = fd->tsprec;
++        break;
++    default:
++        g_assert_not_reached();
++  }
++  switch(tsprecision) {
++  case WTAP_TSPREC_SEC:
+     if (secs >= (60*60)) {
+       g_snprintf(buf, COL_MAX_LEN, "%s%dh %2dm %2ds",
+ 		 negative ? "- " : "",
+@@ -804,8 +870,7 @@ set_time_hour_min_sec(const nstime_t *ts, gchar *buf)
+ 		 (gint32) secs);
+     }
+     break;
+-  case TS_PREC_FIXED_DSEC:
+-  case TS_PREC_AUTO_DSEC:
++  case WTAP_TSPREC_DSEC:
+     if (secs >= (60*60)) {
+       g_snprintf(buf, COL_MAX_LEN, "%s%dh %2dm %2d.%01lds",
+ 		 negative ? "- " : "",
+@@ -826,8 +891,7 @@ set_time_hour_min_sec(const nstime_t *ts, gchar *buf)
+ 		 nsecs / 100000000);
+     }
+     break;
+-  case TS_PREC_FIXED_CSEC:
+-  case TS_PREC_AUTO_CSEC:
++  case WTAP_TSPREC_CSEC:
+     if (secs >= (60*60)) {
+       g_snprintf(buf, COL_MAX_LEN, "%s%dh %2dm %2d.%02lds",
+ 		 negative ? "- " : "",
+@@ -848,8 +912,7 @@ set_time_hour_min_sec(const nstime_t *ts, gchar *buf)
+ 		 nsecs / 10000000);
+     }
+     break;
+-  case TS_PREC_FIXED_MSEC:
+-  case TS_PREC_AUTO_MSEC:
++  case WTAP_TSPREC_MSEC:
+     if (secs >= (60*60)) {
+       g_snprintf(buf, COL_MAX_LEN, "%s%dh %2dm %2d.%03lds",
+ 		 negative ? "- " : "",
+@@ -870,8 +933,7 @@ set_time_hour_min_sec(const nstime_t *ts, gchar *buf)
+ 		 nsecs / 1000000);
+     }
+     break;
+-  case TS_PREC_FIXED_USEC:
+-  case TS_PREC_AUTO_USEC:
++  case WTAP_TSPREC_USEC:
+     if (secs >= (60*60)) {
+       g_snprintf(buf, COL_MAX_LEN, "%s%dh %2dm %2d.%06lds",
+ 		 negative ? "- " : "",
+@@ -892,8 +954,7 @@ set_time_hour_min_sec(const nstime_t *ts, gchar *buf)
+ 		 nsecs / 1000);
+     }
+     break;
+-  case TS_PREC_FIXED_NSEC:
+-  case TS_PREC_AUTO_NSEC:
++  case WTAP_TSPREC_NSEC:
+     if (secs >= (60*60)) {
+       g_snprintf(buf, COL_MAX_LEN, "%s%dh %2dm %2d.%09lds",
+ 		 negative ? "- " : "",
+@@ -928,14 +989,14 @@ col_set_rel_time(const frame_data *fd, column_info *cinfo, const int col)
+   }
+   switch (timestamp_get_seconds_type()) {
+   case TS_SECONDS_DEFAULT:
+-    set_time_seconds(&fd->rel_ts, cinfo->col_buf[col]);
++    set_time_seconds(fd, &fd->rel_ts, cinfo->col_buf[col]);
+     cinfo->col_expr.col_expr[col] = "frame.time_relative";
+     g_strlcpy(cinfo->col_expr.col_expr_val[col],cinfo->col_buf[col],COL_MAX_LEN);
+     break;
+   case TS_SECONDS_HOUR_MIN_SEC:
+-    set_time_hour_min_sec(&fd->rel_ts, cinfo->col_buf[col]);
++    set_time_hour_min_sec(fd, &fd->rel_ts, cinfo->col_buf[col]);
+     cinfo->col_expr.col_expr[col] = "frame.time_relative";
+-    set_time_seconds(&fd->rel_ts, cinfo->col_expr.col_expr_val[col]);
++    set_time_seconds(fd, &fd->rel_ts, cinfo->col_expr.col_expr_val[col]);
+     break;
+   default:
+     g_assert_not_reached();
+@@ -948,14 +1009,14 @@ col_set_delta_time(const frame_data *fd, column_info *cinfo, const int col)
+ {
+   switch (timestamp_get_seconds_type()) {
+   case TS_SECONDS_DEFAULT:
+-    set_time_seconds(&fd->del_cap_ts, cinfo->col_buf[col]);
++    set_time_seconds(fd, &fd->del_cap_ts, cinfo->col_buf[col]);
+     cinfo->col_expr.col_expr[col] = "frame.time_delta";
+     g_strlcpy(cinfo->col_expr.col_expr_val[col],cinfo->col_buf[col],COL_MAX_LEN);
+     break;
+   case TS_SECONDS_HOUR_MIN_SEC:
+-    set_time_hour_min_sec(&fd->del_cap_ts, cinfo->col_buf[col]);
++    set_time_hour_min_sec(fd, &fd->del_cap_ts, cinfo->col_buf[col]);
+     cinfo->col_expr.col_expr[col] = "frame.time_delta";
+-    set_time_seconds(&fd->del_cap_ts, cinfo->col_expr.col_expr_val[col]);
++    set_time_seconds(fd, &fd->del_cap_ts, cinfo->col_expr.col_expr_val[col]);
+     break;
+   default:
+     g_assert_not_reached();
+@@ -973,14 +1034,14 @@ col_set_delta_time_dis(const frame_data *fd, column_info *cinfo, const int col)
+   }
+   switch (timestamp_get_seconds_type()) {
+   case TS_SECONDS_DEFAULT:
+-    set_time_seconds(&fd->del_dis_ts, cinfo->col_buf[col]);
++    set_time_seconds(fd, &fd->del_dis_ts, cinfo->col_buf[col]);
+     cinfo->col_expr.col_expr[col] = "frame.time_delta_displayed";
+     g_strlcpy(cinfo->col_expr.col_expr_val[col],cinfo->col_buf[col],COL_MAX_LEN);
+     break;
+   case TS_SECONDS_HOUR_MIN_SEC:
+-    set_time_hour_min_sec(&fd->del_dis_ts, cinfo->col_buf[col]);
++    set_time_hour_min_sec(fd, &fd->del_dis_ts, cinfo->col_buf[col]);
+     cinfo->col_expr.col_expr[col] = "frame.time_delta_displayed";
+-    set_time_seconds(&fd->del_dis_ts, cinfo->col_expr.col_expr_val[col]);
++    set_time_seconds(fd, &fd->del_dis_ts, cinfo->col_expr.col_expr_val[col]);
+     break;
+   default:
+     g_assert_not_reached();
+@@ -994,6 +1055,7 @@ set_abs_time(const frame_data *fd, gchar *buf, gboolean local)
+ {
+   struct tm *tmp;
+   time_t then;
++  int tsprecision;
+ 
+   if (fd->flags.has_ts) {
+     then = fd->abs_ts.secs;
+@@ -1004,48 +1066,67 @@ set_abs_time(const frame_data *fd, gchar *buf, gboolean local)
+   } else
+     tmp = NULL;
+   if (tmp != NULL) {
+-      switch(timestamp_get_precision()) {
+-      case TS_PREC_FIXED_SEC:
+-      case TS_PREC_AUTO_SEC:
++      switch (timestamp_get_precision()) {
++        case TS_PREC_FIXED_SEC:
++            tsprecision = WTAP_TSPREC_SEC;
++            break;
++        case TS_PREC_FIXED_DSEC:
++            tsprecision = WTAP_TSPREC_DSEC;
++            break;
++        case TS_PREC_FIXED_CSEC:
++            tsprecision = WTAP_TSPREC_CSEC;
++            break;
++        case TS_PREC_FIXED_MSEC:
++            tsprecision = WTAP_TSPREC_MSEC;
++            break;
++        case TS_PREC_FIXED_USEC:
++            tsprecision = WTAP_TSPREC_USEC;
++            break;
++        case TS_PREC_FIXED_NSEC:
++            tsprecision = WTAP_TSPREC_NSEC;
++            break;
++        case TS_PREC_AUTO:
++            tsprecision = fd->tsprec;
++            break;
++        default:
++            g_assert_not_reached();
++      }
++      switch(tsprecision) {
++      case WTAP_TSPREC_SEC:
+           g_snprintf(buf, COL_MAX_LEN,"%02d:%02d:%02d",
+              tmp->tm_hour,
+              tmp->tm_min,
+              tmp->tm_sec);
+           break;
+-      case TS_PREC_FIXED_DSEC:
+-      case TS_PREC_AUTO_DSEC:
++      case WTAP_TSPREC_DSEC:
+           g_snprintf(buf, COL_MAX_LEN,"%02d:%02d:%02d.%01ld",
+              tmp->tm_hour,
+              tmp->tm_min,
+              tmp->tm_sec,
+              (long)fd->abs_ts.nsecs / 100000000);
+           break;
+-      case TS_PREC_FIXED_CSEC:
+-      case TS_PREC_AUTO_CSEC:
++      case WTAP_TSPREC_CSEC:
+           g_snprintf(buf, COL_MAX_LEN,"%02d:%02d:%02d.%02ld",
+              tmp->tm_hour,
+              tmp->tm_min,
+              tmp->tm_sec,
+              (long)fd->abs_ts.nsecs / 10000000);
+           break;
+-      case TS_PREC_FIXED_MSEC:
+-      case TS_PREC_AUTO_MSEC:
++      case WTAP_TSPREC_MSEC:
+           g_snprintf(buf, COL_MAX_LEN,"%02d:%02d:%02d.%03ld",
+              tmp->tm_hour,
+              tmp->tm_min,
+              tmp->tm_sec,
+              (long)fd->abs_ts.nsecs / 1000000);
+           break;
+-      case TS_PREC_FIXED_USEC:
+-      case TS_PREC_AUTO_USEC:
++      case WTAP_TSPREC_USEC:
+           g_snprintf(buf, COL_MAX_LEN,"%02d:%02d:%02d.%06ld",
+              tmp->tm_hour,
+              tmp->tm_min,
+              tmp->tm_sec,
+              (long)fd->abs_ts.nsecs / 1000);
+           break;
+-      case TS_PREC_FIXED_NSEC:
+-      case TS_PREC_AUTO_NSEC:
++      case WTAP_TSPREC_NSEC:
+           g_snprintf(buf, COL_MAX_LEN, "%02d:%02d:%02d.%09ld",
+              tmp->tm_hour,
+              tmp->tm_min,
+@@ -1084,38 +1165,60 @@ col_set_utc_time(const frame_data *fd, column_info *cinfo, const int col)
+ static gboolean
+ set_epoch_time(const frame_data *fd, gchar *buf)
+ {
++  int tsprecision;
++
+   if (!fd->flags.has_ts) {
+     buf[0] = '\0';
+     return FALSE;
+   }
+-  switch(timestamp_get_precision()) {
+-      case TS_PREC_FIXED_SEC:
+-      case TS_PREC_AUTO_SEC:
++
++  switch (timestamp_get_precision()) {
++    case TS_PREC_FIXED_SEC:
++        tsprecision = WTAP_TSPREC_SEC;
++        break;
++    case TS_PREC_FIXED_DSEC:
++        tsprecision = WTAP_TSPREC_DSEC;
++        break;
++    case TS_PREC_FIXED_CSEC:
++        tsprecision = WTAP_TSPREC_CSEC;
++        break;
++    case TS_PREC_FIXED_MSEC:
++        tsprecision = WTAP_TSPREC_MSEC;
++        break;
++    case TS_PREC_FIXED_USEC:
++        tsprecision = WTAP_TSPREC_USEC;
++        break;
++    case TS_PREC_FIXED_NSEC:
++        tsprecision = WTAP_TSPREC_NSEC;
++        break;
++    case TS_PREC_AUTO:
++        tsprecision = fd->tsprec;
++        break;
++    default:
++        g_assert_not_reached();
++  }
++  switch(tsprecision) {
++      case WTAP_TSPREC_SEC:
+           display_epoch_time(buf, COL_MAX_LEN,
+             fd->abs_ts.secs, fd->abs_ts.nsecs / 1000000000, TO_STR_TIME_RES_T_SECS);
+           break;
+-      case TS_PREC_FIXED_DSEC:
+-      case TS_PREC_AUTO_DSEC:
++      case WTAP_TSPREC_DSEC:
+           display_epoch_time(buf, COL_MAX_LEN,
+             fd->abs_ts.secs, fd->abs_ts.nsecs / 100000000, TO_STR_TIME_RES_T_DSECS);
+           break;
+-      case TS_PREC_FIXED_CSEC:
+-      case TS_PREC_AUTO_CSEC:
++      case WTAP_TSPREC_CSEC:
+           display_epoch_time(buf, COL_MAX_LEN,
+             fd->abs_ts.secs, fd->abs_ts.nsecs / 10000000, TO_STR_TIME_RES_T_CSECS);
+           break;
+-      case TS_PREC_FIXED_MSEC:
+-      case TS_PREC_AUTO_MSEC:
++      case WTAP_TSPREC_MSEC:
+           display_epoch_time(buf, COL_MAX_LEN,
+             fd->abs_ts.secs, fd->abs_ts.nsecs / 1000000, TO_STR_TIME_RES_T_MSECS);
+           break;
+-      case TS_PREC_FIXED_USEC:
+-      case TS_PREC_AUTO_USEC:
++      case WTAP_TSPREC_USEC:
+           display_epoch_time(buf, COL_MAX_LEN,
+             fd->abs_ts.secs, fd->abs_ts.nsecs / 1000, TO_STR_TIME_RES_T_USECS);
+           break;
+-      case TS_PREC_FIXED_NSEC:
+-      case TS_PREC_AUTO_NSEC:
++      case WTAP_TSPREC_NSEC:
+           display_epoch_time(buf, COL_MAX_LEN,
+             fd->abs_ts.secs, fd->abs_ts.nsecs, TO_STR_TIME_RES_T_NSECS);
+           break;
+@@ -1152,10 +1255,10 @@ set_fd_time(frame_data *fd, gchar *buf)
+       if (fd->flags.has_ts) {
+         switch (timestamp_get_seconds_type()) {
+         case TS_SECONDS_DEFAULT:
+-          set_time_seconds(&fd->rel_ts, buf);
++          set_time_seconds(fd, &fd->rel_ts, buf);
+           break;
+         case TS_SECONDS_HOUR_MIN_SEC:
+-          set_time_seconds(&fd->rel_ts, buf);
++          set_time_seconds(fd, &fd->rel_ts, buf);
+           break;
+         default:
+           g_assert_not_reached();
+@@ -1169,10 +1272,10 @@ set_fd_time(frame_data *fd, gchar *buf)
+       if (fd->flags.has_ts) {
+         switch (timestamp_get_seconds_type()) {
+         case TS_SECONDS_DEFAULT:
+-          set_time_seconds(&fd->del_cap_ts, buf);
++          set_time_seconds(fd, &fd->del_cap_ts, buf);
+           break;
+         case TS_SECONDS_HOUR_MIN_SEC:
+-          set_time_hour_min_sec(&fd->del_cap_ts, buf);
++          set_time_hour_min_sec(fd, &fd->del_cap_ts, buf);
+           break;
+         default:
+           g_assert_not_reached();
+@@ -1186,10 +1289,10 @@ set_fd_time(frame_data *fd, gchar *buf)
+       if (fd->flags.has_ts) {
+         switch (timestamp_get_seconds_type()) {
+         case TS_SECONDS_DEFAULT:
+-          set_time_seconds(&fd->del_dis_ts, buf);
++          set_time_seconds(fd, &fd->del_dis_ts, buf);
+           break;
+         case TS_SECONDS_HOUR_MIN_SEC:
+-          set_time_hour_min_sec(&fd->del_dis_ts, buf);
++          set_time_hour_min_sec(fd, &fd->del_dis_ts, buf);
+           break;
+         default:
+           g_assert_not_reached();
+@@ -1333,38 +1436,33 @@ col_set_time(column_info *cinfo, const gint el, const nstime_t *ts, char *fieldn
+   for (col = cinfo->col_first[el]; col <= cinfo->col_last[el]; col++) {
+     if (cinfo->fmt_matx[col][el]) {
+       switch(timestamp_get_precision()) {
+-    case TS_PREC_FIXED_SEC:
+-    case TS_PREC_AUTO_SEC:
+-      display_signed_time(cinfo->col_buf[col], COL_MAX_LEN,
+-        (gint32) ts->secs, ts->nsecs / 1000000000, TO_STR_TIME_RES_T_SECS);
+-      break;
+-    case TS_PREC_FIXED_DSEC:
+-    case TS_PREC_AUTO_DSEC:
+-      display_signed_time(cinfo->col_buf[col], COL_MAX_LEN,
+-        (gint32) ts->secs, ts->nsecs / 100000000, TO_STR_TIME_RES_T_DSECS);
+-      break;
+-    case TS_PREC_FIXED_CSEC:
+-    case TS_PREC_AUTO_CSEC:
+-      display_signed_time(cinfo->col_buf[col], COL_MAX_LEN,
+-        (gint32) ts->secs, ts->nsecs / 10000000, TO_STR_TIME_RES_T_CSECS);
+-      break;
+-    case TS_PREC_FIXED_MSEC:
+-    case TS_PREC_AUTO_MSEC:
+-      display_signed_time(cinfo->col_buf[col], COL_MAX_LEN,
+-        (gint32) ts->secs, ts->nsecs / 1000000, TO_STR_TIME_RES_T_MSECS);
+-      break;
+-    case TS_PREC_FIXED_USEC:
+-    case TS_PREC_AUTO_USEC:
+-      display_signed_time(cinfo->col_buf[col], COL_MAX_LEN,
+-        (gint32) ts->secs, ts->nsecs / 1000, TO_STR_TIME_RES_T_USECS);
+-      break;
+-    case TS_PREC_FIXED_NSEC:
+-    case TS_PREC_AUTO_NSEC:
+-      display_signed_time(cinfo->col_buf[col], COL_MAX_LEN,
+-        (gint32) ts->secs, ts->nsecs, TO_STR_TIME_RES_T_NSECS);
+-      break;
+-    default:
+-      g_assert_not_reached();
++      case TS_PREC_FIXED_SEC:
++        display_signed_time(cinfo->col_buf[col], COL_MAX_LEN,
++          (gint32) ts->secs, ts->nsecs / 1000000000, TO_STR_TIME_RES_T_SECS);
++        break;
++      case TS_PREC_FIXED_DSEC:
++        display_signed_time(cinfo->col_buf[col], COL_MAX_LEN,
++          (gint32) ts->secs, ts->nsecs / 100000000, TO_STR_TIME_RES_T_DSECS);
++        break;
++      case TS_PREC_FIXED_CSEC:
++        display_signed_time(cinfo->col_buf[col], COL_MAX_LEN,
++          (gint32) ts->secs, ts->nsecs / 10000000, TO_STR_TIME_RES_T_CSECS);
++        break;
++      case TS_PREC_FIXED_MSEC:
++        display_signed_time(cinfo->col_buf[col], COL_MAX_LEN,
++          (gint32) ts->secs, ts->nsecs / 1000000, TO_STR_TIME_RES_T_MSECS);
++        break;
++      case TS_PREC_FIXED_USEC:
++        display_signed_time(cinfo->col_buf[col], COL_MAX_LEN,
++          (gint32) ts->secs, ts->nsecs / 1000, TO_STR_TIME_RES_T_USECS);
++        break;
++      case TS_PREC_FIXED_NSEC:
++      case TS_PREC_AUTO:    /* default to maximum */
++        display_signed_time(cinfo->col_buf[col], COL_MAX_LEN,
++          (gint32) ts->secs, ts->nsecs, TO_STR_TIME_RES_T_NSECS);
++        break;
++      default:
++        g_assert_not_reached();
+       }
+       cinfo->col_data[col] = cinfo->col_buf[col];
+       cinfo->col_expr.col_expr[col] = fieldname;
+diff --git a/epan/column.c b/epan/column.c
+index e35ba95..aa238f6 100644
+--- a/epan/column.c
++++ b/epan/column.c
+@@ -322,28 +322,23 @@ get_timestamp_column_longest_string(const gint type, const gint precision)
+     case(TS_ABSOLUTE_WITH_DATE):
+     case(TS_UTC_WITH_DATE):
+         switch(precision) {
+-            case(TS_PREC_AUTO_SEC):
+             case(TS_PREC_FIXED_SEC):
+                 return "0000-00-00 00:00:00";
+                 break;
+-            case(TS_PREC_AUTO_DSEC):
+             case(TS_PREC_FIXED_DSEC):
+                 return "0000-00-00 00:00:00.0";
+                 break;
+-            case(TS_PREC_AUTO_CSEC):
+             case(TS_PREC_FIXED_CSEC):
+                 return "0000-00-00 00:00:00.00";
+                 break;
+-            case(TS_PREC_AUTO_MSEC):
+             case(TS_PREC_FIXED_MSEC):
+                 return "0000-00-00 00:00:00.000";
+                 break;
+-            case(TS_PREC_AUTO_USEC):
+             case(TS_PREC_FIXED_USEC):
+                 return "0000-00-00 00:00:00.000000";
+                 break;
+-            case(TS_PREC_AUTO_NSEC):
+             case(TS_PREC_FIXED_NSEC):
++            case(TS_PREC_AUTO):    /* Leave enough room for the maximum */
+                 return "0000-00-00 00:00:00.000000000";
+                 break;
+             default:
+@@ -353,28 +348,23 @@ get_timestamp_column_longest_string(const gint type, const gint precision)
+     case(TS_ABSOLUTE):
+     case(TS_UTC):
+         switch(precision) {
+-            case(TS_PREC_AUTO_SEC):
+             case(TS_PREC_FIXED_SEC):
+                 return "00:00:00";
+                 break;
+-            case(TS_PREC_AUTO_DSEC):
+             case(TS_PREC_FIXED_DSEC):
+                 return "00:00:00.0";
+                 break;
+-            case(TS_PREC_AUTO_CSEC):
+             case(TS_PREC_FIXED_CSEC):
+                 return "00:00:00.00";
+                 break;
+-            case(TS_PREC_AUTO_MSEC):
+             case(TS_PREC_FIXED_MSEC):
+                 return "00:00:00.000";
+                 break;
+-            case(TS_PREC_AUTO_USEC):
+             case(TS_PREC_FIXED_USEC):
+                 return "00:00:00.000000";
+                 break;
+-            case(TS_PREC_AUTO_NSEC):
+             case(TS_PREC_FIXED_NSEC):
++            case(TS_PREC_AUTO):    /* Leave enough room for the maximum */
+                 return "00:00:00.000000000";
+                 break;
+             default:
+@@ -385,28 +375,23 @@ get_timestamp_column_longest_string(const gint type, const gint precision)
+     case(TS_DELTA):
+     case(TS_DELTA_DIS):
+         switch(precision) {
+-            case(TS_PREC_AUTO_SEC):
+             case(TS_PREC_FIXED_SEC):
+                 return "0000";
+                 break;
+-            case(TS_PREC_AUTO_DSEC):
+             case(TS_PREC_FIXED_DSEC):
+                 return "0000.0";
+                 break;
+-            case(TS_PREC_AUTO_CSEC):
+             case(TS_PREC_FIXED_CSEC):
+                 return "0000.00";
+                 break;
+-            case(TS_PREC_AUTO_MSEC):
+             case(TS_PREC_FIXED_MSEC):
+                 return "0000.000";
+                 break;
+-            case(TS_PREC_AUTO_USEC):
+             case(TS_PREC_FIXED_USEC):
+                 return "0000.000000";
+                 break;
+-            case(TS_PREC_AUTO_NSEC):
+             case(TS_PREC_FIXED_NSEC):
++            case(TS_PREC_AUTO):    /* Leave enough room for the maximum */
+                 return "0000.000000000";
+                 break;
+             default:
+@@ -416,28 +401,23 @@ get_timestamp_column_longest_string(const gint type, const gint precision)
+     case(TS_EPOCH):
+         /* This is enough to represent 2^63 (signed 64-bit integer) + fractions */
+         switch(precision) {
+-            case(TS_PREC_AUTO_SEC):
+             case(TS_PREC_FIXED_SEC):
+                 return "0000000000000000000";
+                 break;
+-            case(TS_PREC_AUTO_DSEC):
+             case(TS_PREC_FIXED_DSEC):
+                 return "0000000000000000000.0";
+                 break;
+-            case(TS_PREC_AUTO_CSEC):
+             case(TS_PREC_FIXED_CSEC):
+                 return "0000000000000000000.00";
+                 break;
+-            case(TS_PREC_AUTO_MSEC):
+             case(TS_PREC_FIXED_MSEC):
+                 return "0000000000000000000.000";
+                 break;
+-            case(TS_PREC_AUTO_USEC):
+             case(TS_PREC_FIXED_USEC):
+                 return "0000000000000000000.000000";
+                 break;
+-            case(TS_PREC_AUTO_NSEC):
+             case(TS_PREC_FIXED_NSEC):
++            case(TS_PREC_AUTO):    /* Leave enough room for the maximum */
+                 return "0000000000000000000.000000000";
+                 break;
+             default:
+diff --git a/epan/frame_data.c b/epan/frame_data.c
+index fb1b370..82e5173 100644
+--- a/epan/frame_data.c
++++ b/epan/frame_data.c
+@@ -212,6 +212,7 @@ frame_data_init(frame_data *fdata, guint32 num,
+   fdata->flags.ignored = 0;
+   fdata->flags.has_ts = (phdr->presence_flags & WTAP_HAS_TS) ? 1 : 0;
+   fdata->flags.has_if_id = (phdr->presence_flags & WTAP_HAS_INTERFACE_ID) ? 1 : 0;
++  fdata->tsprec = (guint16)phdr->pkt_tsprec;
+   fdata->color_filter = NULL;
+   fdata->abs_ts.secs = phdr->ts.secs;
+   fdata->abs_ts.nsecs = phdr->ts.nsecs;
+diff --git a/epan/frame_data.h b/epan/frame_data.h
+index 336d034..f4e91df 100644
+--- a/epan/frame_data.h
++++ b/epan/frame_data.h
+@@ -60,6 +60,7 @@ typedef struct _frame_data {
+     unsigned int has_ts         : 1; /**< 1 = has time stamp, 0 = no time stamp */
+     unsigned int has_if_id      : 1; /**< 1 = has interface ID, 0 = no interface ID */
+   } flags;
++  gint16       tsprec;       /**< Time stamp precision */
+ 
+   const void *color_filter;  /**< Per-packet matching color_filter_t object */
+ 
+diff --git a/epan/timestamp.c b/epan/timestamp.c
+index 881acd9..0496ee9 100644
+--- a/epan/timestamp.c
++++ b/epan/timestamp.c
+@@ -32,7 +32,7 @@
+  * and distinguish it from a command line value */
+ static ts_type timestamp_type = TS_NOT_SET;
+ 
+-static int timestamp_precision = TS_PREC_AUTO_USEC;
++static int timestamp_precision = TS_PREC_AUTO;
+ 
+ static ts_seconds_type timestamp_seconds_type = TS_SECONDS_NOT_SET;
+ 
+diff --git a/epan/timestamp.h b/epan/timestamp.h
+index 9b9ffda..c476b8d 100644
+--- a/epan/timestamp.h
++++ b/epan/timestamp.h
+@@ -50,19 +50,13 @@ typedef enum {
+ } ts_type;
+ 
+ typedef enum {
+-	TS_PREC_AUTO,		/* recent */
+-	TS_PREC_FIXED_SEC,	/* recent and internal */
+-	TS_PREC_FIXED_DSEC,	/* recent and internal */
+-	TS_PREC_FIXED_CSEC,	/* recent and internal */
+-	TS_PREC_FIXED_MSEC,	/* recent and internal */
+-	TS_PREC_FIXED_USEC,	/* recent and internal */
+-	TS_PREC_FIXED_NSEC,	/* recent and internal */
+-	TS_PREC_AUTO_SEC,	/* internal */
+-	TS_PREC_AUTO_DSEC,	/* internal */
+-	TS_PREC_AUTO_CSEC,	/* internal */
+-	TS_PREC_AUTO_MSEC,	/* internal */
+-	TS_PREC_AUTO_USEC,	/* internal */
+-	TS_PREC_AUTO_NSEC	/* internal */
++	TS_PREC_AUTO,
++	TS_PREC_FIXED_SEC,
++	TS_PREC_FIXED_DSEC,
++	TS_PREC_FIXED_CSEC,
++	TS_PREC_FIXED_MSEC,
++	TS_PREC_FIXED_USEC,
++	TS_PREC_FIXED_NSEC,
+ } ts_precision;
+ 
+ typedef enum {
+diff --git a/epan/wslua/make-init-lua.pl b/epan/wslua/make-init-lua.pl
+index 33cf956..1c332f3 100755
+--- a/epan/wslua/make-init-lua.pl
++++ b/epan/wslua/make-init-lua.pl
+@@ -33,6 +33,7 @@ my $WSROOT = shift;
+ die "'$WSROOT' is not a directory" unless -d $WSROOT;
+ 
+ my $wtap_encaps_table = '';
++my $wtap_tsprecs_table = '';
+ my $ft_types_table = '';
+ my $bases_table = '';
+ my $encodings = '';
+@@ -41,6 +42,7 @@ my $menu_groups = '';
+ 
+ my %replacements = %{{
+     WTAP_ENCAPS => \$wtap_encaps_table,
++    WTAP_TSPRECS => \$wtap_tsprecs_table,
+     FT_TYPES => \$ft_types_table,
+     BASES => \$bases_table,
+     ENCODINGS => \$encodings,
+@@ -66,6 +68,7 @@ close TEMPLATE;
+ #
+ 
+ $wtap_encaps_table = "-- Wiretap encapsulations\nwtap = {\n";
++$wtap_tsprecs_table = "-- Wiretap timestamp precision types\nwtap_tsprecs = {\n";
+ 
+ open WTAP_H, "< $WSROOT/wiretap/wtap.h" or die "cannot open '$WSROOT/wiretap/wtap.h':  $!";
+ 
+@@ -73,9 +76,14 @@ while(<WTAP_H>) {
+     if ( /^#define WTAP_ENCAP_([A-Z0-9_]+)\s+(\d+)/ ) {
+         $wtap_encaps_table .= "\t[\"$1\"] = $2,\n";
+     }
++
++    if ( /^#define WTAP_TSPREC_([A-Z0-9_]+)\s+(\d+)/ ) {
++        $wtap_tsprecs_table .= "\t[\"$1\"] = $2,\n";
++    }
+ }
+ 
+ $wtap_encaps_table =~ s/,\n$/\n}\n/msi;
++$wtap_tsprecs_table =~ s/,\n$/\n}\n/msi;
+ 
+ #
+ # Extract values from epan/ftypes/ftypes.h:
+diff --git a/epan/wslua/template-init.lua b/epan/wslua/template-init.lua
+index e8ba6eb..c56f06e 100644
+--- a/epan/wslua/template-init.lua
++++ b/epan/wslua/template-init.lua
+@@ -60,6 +60,8 @@ end
+ 
+ -- %WTAP_ENCAPS%
+ 
++-- %WTAP_TSPRECS%
++
+ -- %FT_TYPES%
+ 
+ -- %BASES%
+diff --git a/file.c b/file.c
+index 55ac449..4d12564 100644
+--- a/file.c
++++ b/file.c
+@@ -225,46 +225,12 @@ void
+ cf_timestamp_auto_precision(capture_file *cf)
+ {
+   int i;
+-  int prec = timestamp_get_precision();
+-
+ 
+   /* don't try to get the file's precision if none is opened */
+   if(cf->state == FILE_CLOSED) {
+     return;
+   }
+ 
+-  /* if we are in auto mode, set precision of current file */
+-  if(prec == TS_PREC_AUTO ||
+-     prec == TS_PREC_AUTO_SEC ||
+-     prec == TS_PREC_AUTO_DSEC ||
+-     prec == TS_PREC_AUTO_CSEC ||
+-     prec == TS_PREC_AUTO_MSEC ||
+-     prec == TS_PREC_AUTO_USEC ||
+-     prec == TS_PREC_AUTO_NSEC)
+-  {
+-    switch(wtap_file_tsprecision(cf->wth)) {
+-    case(WTAP_FILE_TSPREC_SEC):
+-      timestamp_set_precision(TS_PREC_AUTO_SEC);
+-      break;
+-    case(WTAP_FILE_TSPREC_DSEC):
+-      timestamp_set_precision(TS_PREC_AUTO_DSEC);
+-      break;
+-    case(WTAP_FILE_TSPREC_CSEC):
+-      timestamp_set_precision(TS_PREC_AUTO_CSEC);
+-      break;
+-    case(WTAP_FILE_TSPREC_MSEC):
+-      timestamp_set_precision(TS_PREC_AUTO_MSEC);
+-      break;
+-    case(WTAP_FILE_TSPREC_USEC):
+-      timestamp_set_precision(TS_PREC_AUTO_USEC);
+-      break;
+-    case(WTAP_FILE_TSPREC_NSEC):
+-      timestamp_set_precision(TS_PREC_AUTO_NSEC);
+-      break;
+-    default:
+-      g_assert_not_reached();
+-    }
+-  }
+   /* Set the column widths of those columns that show the time in
+      "command-line-specified" format. */
+   for (i = 0; i < cf->cinfo.num_cols; i++) {
+diff --git a/rawshark.c b/rawshark.c
+index a8d2c3d..683edbf 100644
+--- a/rawshark.c
++++ b/rawshark.c
+@@ -830,35 +830,6 @@ main(int argc, char *argv[])
+             }
+         }
+ 
+-        /* Set timestamp precision; there should arguably be a command-line
+-           option to let the user set this. */
+-#if 0
+-        switch(wtap_file_tsprecision(cfile.wth)) {
+-            case(WTAP_FILE_TSPREC_SEC):
+-                timestamp_set_precision(TS_PREC_AUTO_SEC);
+-                break;
+-            case(WTAP_FILE_TSPREC_DSEC):
+-                timestamp_set_precision(TS_PREC_AUTO_DSEC);
+-                break;
+-            case(WTAP_FILE_TSPREC_CSEC):
+-                timestamp_set_precision(TS_PREC_AUTO_CSEC);
+-                break;
+-            case(WTAP_FILE_TSPREC_MSEC):
+-                timestamp_set_precision(TS_PREC_AUTO_MSEC);
+-                break;
+-            case(WTAP_FILE_TSPREC_USEC):
+-                timestamp_set_precision(TS_PREC_AUTO_USEC);
+-                break;
+-            case(WTAP_FILE_TSPREC_NSEC):
+-                timestamp_set_precision(TS_PREC_AUTO_NSEC);
+-                break;
+-            default:
+-                g_assert_not_reached();
+-        }
+-#else
+-        timestamp_set_precision(TS_PREC_AUTO_USEC);
+-#endif
+-
+         /* Process the packets in the file */
+         err = load_cap_file(&cfile);
+ 
+diff --git a/tshark.c b/tshark.c
+index 7b38c4a..a464db8 100644
+--- a/tshark.c
++++ b/tshark.c
+@@ -1730,31 +1730,6 @@ main(int argc, char *argv[])
+       return 2;
+     }
+ 
+-    /* Set timestamp precision; there should arguably be a command-line
+-       option to let the user set this. */
+-    switch(wtap_file_tsprecision(cfile.wth)) {
+-    case(WTAP_FILE_TSPREC_SEC):
+-      timestamp_set_precision(TS_PREC_AUTO_SEC);
+-      break;
+-    case(WTAP_FILE_TSPREC_DSEC):
+-      timestamp_set_precision(TS_PREC_AUTO_DSEC);
+-      break;
+-    case(WTAP_FILE_TSPREC_CSEC):
+-      timestamp_set_precision(TS_PREC_AUTO_CSEC);
+-      break;
+-    case(WTAP_FILE_TSPREC_MSEC):
+-      timestamp_set_precision(TS_PREC_AUTO_MSEC);
+-      break;
+-    case(WTAP_FILE_TSPREC_USEC):
+-      timestamp_set_precision(TS_PREC_AUTO_USEC);
+-      break;
+-    case(WTAP_FILE_TSPREC_NSEC):
+-      timestamp_set_precision(TS_PREC_AUTO_NSEC);
+-      break;
+-    default:
+-      g_assert_not_reached();
+-    }
+-
+   /*  Read in the hosts file after cf_open() (which calls init_dissection()
+    *  which resets the name database).
+    */
+@@ -1847,9 +1822,6 @@ main(int argc, char *argv[])
+       print_packet_counts = TRUE;
+     }
+ 
+-    /* For now, assume libpcap gives microsecond precision. */
+-    timestamp_set_precision(TS_PREC_AUTO_USEC);
+-
+     /*
+      * XXX - this returns FALSE if an error occurred, but it also
+      * returns FALSE if the capture stops because a time limit
+diff --git a/ui/cli/tap-comparestat.c b/ui/cli/tap-comparestat.c
+index d180480..cc9291b 100644
+--- a/ui/cli/tap-comparestat.c
++++ b/ui/cli/tap-comparestat.c
+@@ -547,8 +547,6 @@ comparestat_init(const char *optarg, void* userdata _U_)
+ 	cs->zebra_time.secs=0;
+ 	cs->zebra_time.nsecs=1;
+ 	cs->nr_tree=se_tree_create(EMEM_TREE_TYPE_RED_BLACK, "nr_tree");
+-	/* microsecond precision */
+-	timestamp_set_precision(TS_PREC_AUTO_NSEC);
+ 
+ 	if(filter){
+ 		cs->filter=g_strdup(filter);
+diff --git a/ui/gtk/compare_stat.c b/ui/gtk/compare_stat.c
+index 524bb72..06da044 100644
+--- a/ui/gtk/compare_stat.c
++++ b/ui/gtk/compare_stat.c
+@@ -594,8 +594,6 @@ comparestat_draw(void *arg)
+ 	second_file_amount=cs->second_file_amount;
+ 	/* reset after numbering */
+ 	cs->nr_tree=se_tree_create(EMEM_TREE_TYPE_RED_BLACK, "nr_tree");
+-	/* microsecond precision for Info column*/
+-	timestamp_set_precision(TS_PREC_AUTO_NSEC);
+ 	/* reset ordering */
+ 	nstime_set_unset(&cs->current_time);
+ 
+@@ -748,8 +746,6 @@ gtk_comparestat_init(const char *optarg, void* userdata _U_)
+ 	cs->zebra_time.secs=0;
+ 	cs->zebra_time.nsecs=1;
+ 	cs->nr_tree=se_tree_create(EMEM_TREE_TYPE_RED_BLACK, "nr_tree");
+-	/* microsecond precision */
+-	timestamp_set_precision(TS_PREC_AUTO_NSEC);
+ 
+ 	/* transient_for top_level */
+ 	cs->win=dlg_window_new("compare-stat");
+diff --git a/ui/gtk/main_menubar.c b/ui/gtk/main_menubar.c
+index 977092e..8d808eb 100644
+--- a/ui/gtk/main_menubar.c
++++ b/ui/gtk/main_menubar.c
+@@ -621,11 +621,7 @@ timestamp_precision_new_cb (GtkRadioAction *action, GtkRadioAction *current _U_,
+     value = gtk_radio_action_get_current_value (action);
+     if (recent.gui_time_precision != value) {
+         /* the actual precision will be set in new_packet_list_queue_draw() below */
+-        if (value == TS_PREC_AUTO) {
+-            timestamp_set_precision(TS_PREC_AUTO_SEC);
+-        } else {
+-            timestamp_set_precision(value);
+-        }
++        timestamp_set_precision(value);
+         recent.gui_time_precision  = value;
+         /* This call adjusts column width */
+         cf_timestamp_auto_precision(&cfile);
+@@ -1765,7 +1761,7 @@ static const GtkRadioActionEntry main_menu_bar_radio_view_time_entries [] =
+ static const GtkRadioActionEntry main_menu_bar_radio_view_time_fileformat_prec_entries [] =
+ {
+     /* name, stock id, label, accel, tooltip,  value */
+-    { "/View/TimeDisplayFormat/FileFormatPrecision-Automatic",      NULL, "Automatic (File Format Precision)",  NULL, NULL, TS_PREC_AUTO },
++    { "/View/TimeDisplayFormat/FileFormatPrecision-Automatic",      NULL, "Automatic (use precision indicated in the file)",  NULL, NULL, TS_PREC_AUTO },
+     { "/View/TimeDisplayFormat/FileFormatPrecision-Seconds",        NULL, "Seconds:   0",                       NULL, NULL, TS_PREC_FIXED_SEC },
+     { "/View/TimeDisplayFormat/FileFormatPrecision-Deciseconds",    NULL, "Deciseconds:   0.1",                 NULL, NULL, TS_PREC_FIXED_DSEC },
+     { "/View/TimeDisplayFormat/FileFormatPrecision-Centiseconds",   NULL, "Centiseconds:  0.12",                NULL, NULL, TS_PREC_FIXED_CSEC },
+@@ -4474,8 +4470,8 @@ menu_recent_read_finished(void) {
+     cf_timestamp_auto_precision(&cfile);
+     new_packet_list_queue_draw();
+     /* the actual precision will be set in new_packet_list_queue_draw() below */
+-    if (recent.gui_time_precision == TS_PREC_AUTO) {
+-        timestamp_set_precision(TS_PREC_AUTO_SEC);
++    if (recent.gui_time_precision > TS_PREC_FIXED_NSEC) {
++        timestamp_set_precision(TS_PREC_AUTO);
+     } else {
+         timestamp_set_precision(recent.gui_time_precision);
+     }
+diff --git a/ui/qt/main.cpp b/ui/qt/main.cpp
+index 3bd1276..112fe4c 100644
+--- a/ui/qt/main.cpp
++++ b/ui/qt/main.cpp
+@@ -952,7 +952,7 @@ int main(int argc, char *argv[])
+ 
+     g_log(NULL, G_LOG_LEVEL_DEBUG, "FIX: timestamp types should be set elsewhere");
+     timestamp_set_type(TS_RELATIVE);
+-    timestamp_set_precision(TS_PREC_AUTO_USEC);
++    timestamp_set_precision(TS_PREC_AUTO);
+     timestamp_set_seconds_type(TS_SECONDS_DEFAULT);
+ 
+ /////////
+diff --git a/wiretap/5views.c b/wiretap/5views.c
+index 2ead0a1..241db6a 100644
+--- a/wiretap/5views.c
++++ b/wiretap/5views.c
+@@ -194,7 +194,7 @@ int _5views_open(wtap *wth, int *err, gchar **err_info)
+ 	wth->subtype_seek_read = _5views_seek_read;
+ 	wth->file_encap = encap;
+ 	wth->snapshot_length = 0;	/* not available in header */
+-	wth->tsprecision = WTAP_FILE_TSPREC_NSEC;
++	wth->file_tsprec = WTAP_TSPREC_NSEC;
+ 
+ 	return 1;
+ }
+diff --git a/wiretap/aethra.c b/wiretap/aethra.c
+index e5a7923..0d704de 100644
+--- a/wiretap/aethra.c
++++ b/wiretap/aethra.c
+@@ -180,7 +180,7 @@ int aethra_open(wtap *wth, int *err, gchar **err_info)
+ 	 */
+ 	wth->file_encap = WTAP_ENCAP_ISDN;
+ 	wth->snapshot_length = 0;	/* not available in header */
+-	wth->tsprecision = WTAP_FILE_TSPREC_MSEC;
++	wth->file_tsprec = WTAP_TSPREC_MSEC;
+ 	return 1;
+ }
+ 
+diff --git a/wiretap/airopeek9.c b/wiretap/airopeek9.c
+index a442021..6642497 100644
+--- a/wiretap/airopeek9.c
++++ b/wiretap/airopeek9.c
+@@ -307,7 +307,7 @@ int airopeek9_open(wtap *wth, int *err, gchar **err_info)
+     wth->file_encap = file_encap;
+     wth->subtype_read = airopeekv9_read;
+     wth->subtype_seek_read = airopeekv9_seek_read;
+-    wth->tsprecision = WTAP_FILE_TSPREC_NSEC;
++    wth->file_tsprec = WTAP_TSPREC_NSEC;
+ 
+     airopeek9 = (airopeek9_t *)g_malloc(sizeof(airopeek9_t));
+     wth->priv = (void *)airopeek9;
+diff --git a/wiretap/ascendtext.c b/wiretap/ascendtext.c
+index b430651..b629aa0 100644
+--- a/wiretap/ascendtext.c
++++ b/wiretap/ascendtext.c
+@@ -240,7 +240,7 @@ int ascend_open(wtap *wth, int *err, gchar **err_info)
+   }
+   ascend->inittime = statbuf.st_ctime;
+   ascend->adjusted = 0;
+-  wth->tsprecision = WTAP_FILE_TSPREC_USEC;
++  wth->file_tsprec = WTAP_TSPREC_USEC;
+ 
+   init_parse_ascend();
+ 
+diff --git a/wiretap/ber.c b/wiretap/ber.c
+index 134b167..f5f896f 100644
+--- a/wiretap/ber.c
++++ b/wiretap/ber.c
+@@ -185,7 +185,7 @@ int ber_open(wtap *wth, int *err, gchar **err_info)
+ 
+   wth->subtype_read = ber_read;
+   wth->subtype_seek_read = ber_seek_read;
+-  wth->tsprecision = WTAP_FILE_TSPREC_SEC;
++  wth->file_tsprec = WTAP_TSPREC_SEC;
+ 
+   return 1;
+ }
+diff --git a/wiretap/btsnoop.c b/wiretap/btsnoop.c
+index 41d33a0..7d603c1 100644
+--- a/wiretap/btsnoop.c
++++ b/wiretap/btsnoop.c
+@@ -149,7 +149,7 @@ int btsnoop_open(wtap *wth, int *err, gchar **err_info)
+ 	wth->subtype_seek_read = btsnoop_seek_read;
+ 	wth->file_encap = file_encap;
+ 	wth->snapshot_length = 0;	/* not available in header */
+-	wth->tsprecision = WTAP_FILE_TSPREC_USEC;
++	wth->file_tsprec = WTAP_TSPREC_USEC;
+ 	wth->file_type = WTAP_FILE_BTSNOOP;
+ 	return 1;
+ }
+@@ -442,7 +442,7 @@ gboolean btsnoop_dump_open_h1(wtap_dumper *wdh, int *err)
+     switch (wdh->file_type) {
+ 
+     case WTAP_FILE_BTSNOOP:
+-        wdh->tsprecision = WTAP_FILE_TSPREC_USEC;
++        wdh->tsprecision = WTAP_TSPREC_USEC;
+         break;
+ 
+     default:
+@@ -484,7 +484,7 @@ gboolean btsnoop_dump_open_h4(wtap_dumper *wdh, int *err)
+     switch (wdh->file_type) {
+ 
+     case WTAP_FILE_BTSNOOP:
+-        wdh->tsprecision = WTAP_FILE_TSPREC_USEC;
++        wdh->tsprecision = WTAP_TSPREC_USEC;
+         break;
+ 
+     default:
+diff --git a/wiretap/catapult_dct2000.c b/wiretap/catapult_dct2000.c
+index c1b47ab..be9ad4d 100644
+--- a/wiretap/catapult_dct2000.c
++++ b/wiretap/catapult_dct2000.c
+@@ -256,7 +256,7 @@ catapult_dct2000_open(wtap *wth, int *err, gchar **err_info _U_)
+     wth->subtype_close = catapult_dct2000_close;
+ 
+     /* Choose microseconds (have 4 decimal places...) */
+-    wth->tsprecision = WTAP_FILE_TSPREC_USEC;
++    wth->file_tsprec = WTAP_TSPREC_USEC;
+ 
+ 
+     /***************************************************************/
+diff --git a/wiretap/commview.c b/wiretap/commview.c
+index 40f68a4..5841cbf 100644
+--- a/wiretap/commview.c
++++ b/wiretap/commview.c
+@@ -131,7 +131,7 @@ int commview_open(wtap *wth, int *err, gchar **err_info)
+ 
+ 	wth->file_type = WTAP_FILE_COMMVIEW;
+ 	wth->file_encap = WTAP_ENCAP_PER_PACKET;
+-	wth->tsprecision = WTAP_FILE_TSPREC_USEC;
++	wth->file_tsprec = WTAP_TSPREC_USEC;
+ 
+ 	return 1; /* Our kind of file */
+ }
+diff --git a/wiretap/cosine.c b/wiretap/cosine.c
+index 2edbe69..6ebcb69 100644
+--- a/wiretap/cosine.c
++++ b/wiretap/cosine.c
+@@ -299,7 +299,7 @@ int cosine_open(wtap *wth, int *err, gchar **err_info)
+ 	wth->snapshot_length = 0; /* not known */
+ 	wth->subtype_read = cosine_read;
+ 	wth->subtype_seek_read = cosine_seek_read;
+-	wth->tsprecision = WTAP_FILE_TSPREC_CSEC;
++	wth->file_tsprec = WTAP_TSPREC_CSEC;
+ 
+ 	return 1;
+ }
+diff --git a/wiretap/csids.c b/wiretap/csids.c
+index 079b369..a2ca74b 100644
+--- a/wiretap/csids.c
++++ b/wiretap/csids.c
+@@ -144,7 +144,7 @@ int csids_open(wtap *wth, int *err, gchar **err_info)
+   wth->snapshot_length = 0; /* not known */
+   wth->subtype_read = csids_read;
+   wth->subtype_seek_read = csids_seek_read;
+-  wth->tsprecision = WTAP_FILE_TSPREC_SEC;
++  wth->file_tsprec = WTAP_TSPREC_SEC;
+ 
+   return 1;
+ }
+diff --git a/wiretap/daintree-sna.c b/wiretap/daintree-sna.c
+index aa9f392..e9568dd 100644
+--- a/wiretap/daintree-sna.c
++++ b/wiretap/daintree-sna.c
+@@ -118,7 +118,7 @@ int daintree_sna_open(wtap *wth, int *err _U_, gchar **err_info _U_)
+ 	/* set up for file type */
+ 	wth->file_type = WTAP_FILE_DAINTREE_SNA;
+ 	wth->file_encap = WTAP_ENCAP_IEEE802_15_4_NOFCS;
+-	wth->tsprecision = WTAP_FILE_TSPREC_USEC;
++	wth->file_tsprec = WTAP_TSPREC_USEC;
+ 	wth->snapshot_length = 0; /* not available in header */
+ 
+ 	return 1; /* it's a Daintree file */
+diff --git a/wiretap/dbs-etherwatch.c b/wiretap/dbs-etherwatch.c
+index fece1aa..91906c5 100644
+--- a/wiretap/dbs-etherwatch.c
++++ b/wiretap/dbs-etherwatch.c
+@@ -206,7 +206,7 @@ int dbs_etherwatch_open(wtap *wth, int *err, gchar **err_info)
+ 	wth->snapshot_length = 0;	/* not known */
+ 	wth->subtype_read = dbs_etherwatch_read;
+ 	wth->subtype_seek_read = dbs_etherwatch_seek_read;
+-	wth->tsprecision = WTAP_FILE_TSPREC_CSEC;
++	wth->file_tsprec = WTAP_TSPREC_CSEC;
+ 
+ 	return 1;
+ }
+diff --git a/wiretap/dct3trace.c b/wiretap/dct3trace.c
+index 8b8ee25..902bb17 100644
+--- a/wiretap/dct3trace.c
++++ b/wiretap/dct3trace.c
+@@ -208,7 +208,7 @@ int dct3trace_open(wtap *wth, int *err, gchar **err_info)
+ 	wth->snapshot_length = 0; /* not known */
+ 	wth->subtype_read = dct3trace_read;
+ 	wth->subtype_seek_read = dct3trace_seek_read;
+-	wth->tsprecision = WTAP_FILE_TSPREC_SEC;
++	wth->file_tsprec = WTAP_TSPREC_SEC;
+ 
+ 	return 1;
+ }
+diff --git a/wiretap/erf.c b/wiretap/erf.c
+index 884b4c5..c0aeb54 100644
+--- a/wiretap/erf.c
++++ b/wiretap/erf.c
+@@ -274,7 +274,7 @@ extern int erf_open(wtap *wth, int *err, gchar **err_info)
+ 
+   wth->subtype_read = erf_read;
+   wth->subtype_seek_read = erf_seek_read;
+-  wth->tsprecision = WTAP_FILE_TSPREC_NSEC;
++  wth->file_tsprec = WTAP_TSPREC_NSEC;
+ 
+   erf_populate_interfaces(wth);
+ 
+@@ -702,7 +702,7 @@ int erf_dump_open(wtap_dumper *wdh, int *err)
+ 
+   switch(wdh->file_type){
+     case WTAP_FILE_ERF:
+-      wdh->tsprecision = WTAP_FILE_TSPREC_NSEC;
++      wdh->tsprecision = WTAP_TSPREC_NSEC;
+       break;
+     default:
+       *err = WTAP_ERR_UNSUPPORTED_FILE_TYPE;
+diff --git a/wiretap/etherpeek.c b/wiretap/etherpeek.c
+index 340f2e1..94bf31e 100644
+--- a/wiretap/etherpeek.c
++++ b/wiretap/etherpeek.c
+@@ -337,7 +337,7 @@ int etherpeek_open(wtap *wth, int *err, gchar **err_info)
+ 	}
+ 
+ 	wth->snapshot_length   = 0; /* not available in header */
+-	wth->tsprecision = WTAP_FILE_TSPREC_USEC;
++	wth->file_tsprec = WTAP_TSPREC_USEC;
+ 
+ 	return 1;
+ }
+diff --git a/wiretap/eyesdn.c b/wiretap/eyesdn.c
+index e87d5cb..caae5da 100644
+--- a/wiretap/eyesdn.c
++++ b/wiretap/eyesdn.c
+@@ -155,7 +155,7 @@ int eyesdn_open(wtap *wth, int *err, gchar **err_info)
+ 	wth->snapshot_length = 0; /* not known */
+ 	wth->subtype_read = eyesdn_read;
+ 	wth->subtype_seek_read = eyesdn_seek_read;
+-	wth->tsprecision = WTAP_FILE_TSPREC_USEC;
++	wth->file_tsprec = WTAP_TSPREC_USEC;
+ 
+ 	return 1;
+ }
+diff --git a/wiretap/file_access.c b/wiretap/file_access.c
+index 9ad6636..e9198fc 100644
+--- a/wiretap/file_access.c
++++ b/wiretap/file_access.c
+@@ -349,7 +349,7 @@ wtap* wtap_open_offline(const char *filename, int *err, char **err_info,
+ 	wth->file_encap = WTAP_ENCAP_UNKNOWN;
+ 	wth->subtype_sequential_close = NULL;
+ 	wth->subtype_close = NULL;
+-	wth->tsprecision = WTAP_FILE_TSPREC_USEC;
++	wth->file_tsprec = WTAP_TSPREC_USEC;
+ 	wth->priv = NULL;
+ 
+ 	init_open_routines();
+diff --git a/wiretap/hcidump.c b/wiretap/hcidump.c
+index 91a91f8..851e3c4 100644
+--- a/wiretap/hcidump.c
++++ b/wiretap/hcidump.c
+@@ -154,7 +154,7 @@ int hcidump_open(wtap *wth, int *err, gchar **err_info)
+ 
+ 	wth->subtype_read = hcidump_read;
+ 	wth->subtype_seek_read = hcidump_seek_read;
+-	wth->tsprecision = WTAP_FILE_TSPREC_USEC;
++	wth->file_tsprec = WTAP_TSPREC_USEC;
+ 
+ 	return 1;
+ }
+diff --git a/wiretap/i4btrace.c b/wiretap/i4btrace.c
+index a095416..87cfa34 100644
+--- a/wiretap/i4btrace.c
++++ b/wiretap/i4btrace.c
+@@ -114,7 +114,7 @@ int i4btrace_open(wtap *wth, int *err, gchar **err_info)
+ 	i4btrace->byte_swapped = byte_swapped;
+ 
+ 	wth->file_encap = WTAP_ENCAP_ISDN;
+-	wth->tsprecision = WTAP_FILE_TSPREC_USEC;
++	wth->file_tsprec = WTAP_TSPREC_USEC;
+ 
+ 	return 1;
+ }
+diff --git a/wiretap/ipfix.c b/wiretap/ipfix.c
+index 2e9c27f..d3ef981 100644
+--- a/wiretap/ipfix.c
++++ b/wiretap/ipfix.c
+@@ -241,7 +241,7 @@ ipfix_open(wtap *wth, int *err, gchar **err_info)
+     /* all's good, this is a IPFIX file */
+     wth->file_encap = WTAP_ENCAP_RAW_IPFIX;
+     wth->snapshot_length = 0;
+-    wth->tsprecision = WTAP_FILE_TSPREC_SEC;
++    wth->file_tsprec = WTAP_TSPREC_SEC;
+     wth->subtype_read = ipfix_read;
+     wth->subtype_seek_read = ipfix_seek_read;
+     wth->subtype_close = ipfix_close;
+diff --git a/wiretap/iptrace.c b/wiretap/iptrace.c
+index 5336c28..dc1491e 100644
+--- a/wiretap/iptrace.c
++++ b/wiretap/iptrace.c
+@@ -71,13 +71,13 @@ int iptrace_open(wtap *wth, int *err, gchar **err_info)
+ 		wth->file_type = WTAP_FILE_IPTRACE_1_0;
+ 		wth->subtype_read = iptrace_read_1_0;
+ 		wth->subtype_seek_read = iptrace_seek_read_1_0;
+-		wth->tsprecision = WTAP_FILE_TSPREC_SEC;
++		wth->file_tsprec = WTAP_TSPREC_SEC;
+ 	}
+ 	else if (strcmp(name, "iptrace 2.0") == 0) {
+ 		wth->file_type = WTAP_FILE_IPTRACE_2_0;
+ 		wth->subtype_read = iptrace_read_2_0;
+ 		wth->subtype_seek_read = iptrace_seek_read_2_0;
+-		wth->tsprecision = WTAP_FILE_TSPREC_NSEC;
++		wth->file_tsprec = WTAP_TSPREC_NSEC;
+ 	}
+ 	else {
+ 		return 0;
+diff --git a/wiretap/iseries.c b/wiretap/iseries.c
+index ec32198..3ab02dd 100644
+--- a/wiretap/iseries.c
++++ b/wiretap/iseries.c
+@@ -253,7 +253,7 @@ iseries_open (wtap * wth, int *err, gchar ** err_info)
+         wth->snapshot_length   = 0;
+         wth->subtype_read      = iseries_read;
+         wth->subtype_seek_read = iseries_seek_read;
+-        wth->tsprecision       = WTAP_FILE_TSPREC_USEC;
++        wth->file_tsprec       = WTAP_TSPREC_USEC;
+ 
+         if (file_seek (wth->fh, 0, SEEK_SET, err) == -1)
+           {
+@@ -293,7 +293,7 @@ iseries_open (wtap * wth, int *err, gchar ** err_info)
+             wth->snapshot_length   = 0;
+             wth->subtype_read      = iseries_read;
+             wth->subtype_seek_read = iseries_seek_read;
+-            wth->tsprecision       = WTAP_FILE_TSPREC_USEC;
++            wth->file_tsprec       = WTAP_TSPREC_USEC;
+ 
+             if (file_seek (wth->fh, 0, SEEK_SET, err) == -1)
+               {
+diff --git a/wiretap/k12.c b/wiretap/k12.c
+index dabd731..2a326d3 100644
+--- a/wiretap/k12.c
++++ b/wiretap/k12.c
+@@ -819,7 +819,7 @@ int k12_open(wtap *wth, int *err, gchar **err_info) {
+     wth->subtype_seek_read = k12_seek_read;
+     wth->subtype_close = k12_close;
+     wth->priv = (void *)file_data;
+-    wth->tsprecision = WTAP_FILE_TSPREC_NSEC;
++    wth->file_tsprec = WTAP_TSPREC_NSEC;
+ 
+     return 1;
+ }
+diff --git a/wiretap/k12text.l b/wiretap/k12text.l
+index 19dc899..2f35f57 100644
+--- a/wiretap/k12text.l
++++ b/wiretap/k12text.l
+@@ -348,7 +348,7 @@ k12text_open(wtap *wth, int *err, gchar **err_info _U_)
+ 	wth->snapshot_length = 0;
+ 	wth->subtype_read = k12text_read;
+ 	wth->subtype_seek_read = k12text_seek_read;
+-	wth->tsprecision = WTAP_FILE_TSPREC_NSEC;
++	wth->file_tsprec = WTAP_TSPREC_NSEC;
+ 
+ 	return 1;
+ }
+diff --git a/wiretap/lanalyzer.c b/wiretap/lanalyzer.c
+index 29bed57..53ed6e0 100644
+--- a/wiretap/lanalyzer.c
++++ b/wiretap/lanalyzer.c
+@@ -343,7 +343,7 @@ int lanalyzer_open(wtap *wth, int *err, gchar **err_info)
+ 	wth->subtype_read = lanalyzer_read;
+ 	wth->subtype_seek_read = lanalyzer_seek_read;
+ 	wth->snapshot_length = 0;
+-	wth->tsprecision = WTAP_FILE_TSPREC_NSEC;
++	wth->file_tsprec = WTAP_TSPREC_NSEC;
+ 
+ 	/* Read records until we find the start of packets */
+ 	while (1) {
+diff --git a/wiretap/libpcap.c b/wiretap/libpcap.c
+index d0a33d3..3631b24 100644
+--- a/wiretap/libpcap.c
++++ b/wiretap/libpcap.c
+@@ -109,7 +109,7 @@ int libpcap_open(wtap *wth, int *err, gchar **err_info)
+ 		   a program using either standard or ss990417 libpcap. */
+ 		byte_swapped = FALSE;
+ 		modified = FALSE;
+-		wth->tsprecision = WTAP_FILE_TSPREC_USEC;
++		wth->file_tsprec = WTAP_TSPREC_USEC;
+ 		break;
+ 
+ 	case PCAP_MODIFIED_MAGIC:
+@@ -117,7 +117,7 @@ int libpcap_open(wtap *wth, int *err, gchar **err_info)
+ 		   a program using either ss990915 or ss991029 libpcap. */
+ 		byte_swapped = FALSE;
+ 		modified = TRUE;
+-		wth->tsprecision = WTAP_FILE_TSPREC_USEC;
++		wth->file_tsprec = WTAP_TSPREC_USEC;
+ 		break;
+ 
+ 	case PCAP_SWAPPED_MAGIC:
+@@ -126,7 +126,7 @@ int libpcap_open(wtap *wth, int *err, gchar **err_info)
+ 		   ss990417 libpcap. */
+ 		byte_swapped = TRUE;
+ 		modified = FALSE;
+-		wth->tsprecision = WTAP_FILE_TSPREC_USEC;
++		wth->file_tsprec = WTAP_TSPREC_USEC;
+ 		break;
+ 
+ 	case PCAP_SWAPPED_MODIFIED_MAGIC:
+@@ -135,7 +135,7 @@ int libpcap_open(wtap *wth, int *err, gchar **err_info)
+ 		   or ss991029 libpcap. */
+ 		byte_swapped = TRUE;
+ 		modified = TRUE;
+-		wth->tsprecision = WTAP_FILE_TSPREC_USEC;
++		wth->file_tsprec = WTAP_TSPREC_USEC;
+ 		break;
+ 
+ 	case PCAP_NSEC_MAGIC:
+@@ -144,7 +144,7 @@ int libpcap_open(wtap *wth, int *err, gchar **err_info)
+ 		   except that the time stamps have nanosecond resolution. */
+ 		byte_swapped = FALSE;
+ 		modified = FALSE;
+-		wth->tsprecision = WTAP_FILE_TSPREC_NSEC;
++		wth->file_tsprec = WTAP_TSPREC_NSEC;
+ 		break;
+ 
+ 	case PCAP_SWAPPED_NSEC_MAGIC:
+@@ -154,7 +154,7 @@ int libpcap_open(wtap *wth, int *err, gchar **err_info)
+ 		   nanosecond resolution. */
+ 		byte_swapped = TRUE;
+ 		modified = FALSE;
+-		wth->tsprecision = WTAP_FILE_TSPREC_NSEC;
++		wth->file_tsprec = WTAP_TSPREC_NSEC;
+ 		break;
+ 
+ 	default:
+@@ -313,7 +313,7 @@ int libpcap_open(wtap *wth, int *err, gchar **err_info)
+ 		 * precision to nanosecond precision.
+ 		 */
+ 		wth->file_type = WTAP_FILE_PCAP_AIX;
+-		wth->tsprecision = WTAP_FILE_TSPREC_NSEC;
++		wth->file_tsprec = WTAP_TSPREC_NSEC;
+ 		return 1;
+ 	}
+ 
+@@ -405,7 +405,7 @@ int libpcap_open(wtap *wth, int *err, gchar **err_info)
+ 		 *
+ 		 * Try the standard format first.
+ 		 */
+-		if(wth->tsprecision == WTAP_FILE_TSPREC_NSEC) {
++		if(wth->file_tsprec == WTAP_TSPREC_NSEC) {
+ 			wth->file_type = WTAP_FILE_PCAP_NSEC;
+ 		} else {
+ 			wth->file_type = WTAP_FILE_PCAP;
+@@ -673,7 +673,7 @@ static gboolean libpcap_read(wtap *wth, int *err, gchar **err_info,
+ 	/* Update the Timestamp, if not already done */
+ 	if (wth->file_encap != WTAP_ENCAP_ERF) {
+ 	  wth->phdr.ts.secs = hdr.hdr.ts_sec;
+-	  if(wth->tsprecision == WTAP_FILE_TSPREC_NSEC) {
++	  if(wth->file_tsprec == WTAP_TSPREC_NSEC) {
+ 	    wth->phdr.ts.nsecs = hdr.hdr.ts_usec;
+ 	  } else {
+ 	    wth->phdr.ts.nsecs = hdr.hdr.ts_usec * 1000;
+@@ -892,18 +892,18 @@ gboolean libpcap_dump_open(wtap_dumper *wdh, int *err)
+ 	case WTAP_FILE_PCAP_SS990417:	/* modified, but with the old magic, sigh */
+ 	case WTAP_FILE_PCAP_NOKIA:	/* Nokia libpcap of some sort */
+ 		magic = PCAP_MAGIC;
+-		wdh->tsprecision = WTAP_FILE_TSPREC_USEC;
++		wdh->tsprecision = WTAP_TSPREC_USEC;
+ 		break;
+ 
+ 	case WTAP_FILE_PCAP_SS990915:	/* new magic, extra crap */
+ 	case WTAP_FILE_PCAP_SS991029:
+ 		magic = PCAP_MODIFIED_MAGIC;
+-		wdh->tsprecision = WTAP_FILE_TSPREC_USEC;
++		wdh->tsprecision = WTAP_TSPREC_USEC;
+ 		break;
+ 
+ 	case WTAP_FILE_PCAP_NSEC:		/* same as WTAP_FILE_PCAP, but nsec precision */
+ 		magic = PCAP_NSEC_MAGIC;
+-		wdh->tsprecision = WTAP_FILE_TSPREC_NSEC;
++		wdh->tsprecision = WTAP_TSPREC_NSEC;
+ 		break;
+ 
+ 	default:
+@@ -957,7 +957,7 @@ static gboolean libpcap_dump(wtap_dumper *wdh,
+ 	phdrsize = pcap_get_phdr_size(wdh->encap, pseudo_header);
+ 
+ 	rec_hdr.hdr.ts_sec = (guint32) phdr->ts.secs;
+-	if(wdh->tsprecision == WTAP_FILE_TSPREC_NSEC) {
++	if(wdh->tsprecision == WTAP_TSPREC_NSEC) {
+ 		rec_hdr.hdr.ts_usec = phdr->ts.nsecs;
+ 	} else {
+ 		rec_hdr.hdr.ts_usec = phdr->ts.nsecs / 1000;
+diff --git a/wiretap/mime_file.c b/wiretap/mime_file.c
+index 935e84d..d409549 100644
+--- a/wiretap/mime_file.c
++++ b/wiretap/mime_file.c
+@@ -181,7 +181,7 @@ mime_file_open(wtap *wth, int *err, gchar **err_info)
+ 
+ 		wth->file_type = WTAP_FILE_MIME;
+ 		wth->file_encap = WTAP_ENCAP_MIME;
+-		wth->tsprecision = WTAP_FILE_TSPREC_SEC;
++		wth->file_tsprec = WTAP_TSPREC_SEC;
+ 		wth->subtype_read = mime_read;
+ 		wth->subtype_seek_read = mime_seek_read;
+ 		wth->snapshot_length = 0;
+diff --git a/wiretap/mp2t.c b/wiretap/mp2t.c
+index b76e1d7..f34b3dc 100644
+--- a/wiretap/mp2t.c
++++ b/wiretap/mp2t.c
+@@ -218,7 +218,7 @@ mp2t_open(wtap *wth, int *err, gchar **err_info)
+ 
+     wth->file_type = WTAP_FILE_MPEG_2_TS;
+     wth->file_encap = WTAP_ENCAP_MPEG_2_TS;
+-    wth->tsprecision = WTAP_FILE_TSPREC_NSEC;
++    wth->file_tsprec = WTAP_TSPREC_NSEC;
+     wth->subtype_read = mp2t_read;
+     wth->subtype_seek_read = mp2t_seek_read;
+     wth->snapshot_length = 0;
+diff --git a/wiretap/mpeg.c b/wiretap/mpeg.c
+index b3a93f6..7f202ca 100644
+--- a/wiretap/mpeg.c
++++ b/wiretap/mpeg.c
+@@ -303,7 +303,7 @@ good_magic:
+ 
+ 	wth->file_type = WTAP_FILE_MPEG;
+ 	wth->file_encap = WTAP_ENCAP_MPEG;
+-	wth->tsprecision = WTAP_FILE_TSPREC_NSEC;
++	wth->file_tsprec = WTAP_TSPREC_NSEC;
+ 	wth->subtype_read = mpeg_read;
+ 	wth->subtype_seek_read = mpeg_seek_read;
+ 	wth->snapshot_length = 0;
+diff --git a/wiretap/netmon.c b/wiretap/netmon.c
+index afefc68..3cda0b0 100644
+--- a/wiretap/netmon.c
++++ b/wiretap/netmon.c
+@@ -401,7 +401,7 @@ int netmon_open(wtap *wth, int *err, gchar **err_info)
+ 		 * Version 1.x of the file format supports
+ 		 * millisecond precision.
+ 		 */
+-		wth->tsprecision = WTAP_FILE_TSPREC_MSEC;
++		wth->file_tsprec = WTAP_TSPREC_MSEC;
+ 		break;
+ 
+ 	case 2:
+@@ -411,7 +411,7 @@ int netmon_open(wtap *wth, int *err, gchar **err_info)
+ 		 * currently support that, so say
+ 		 * "nanosecond precision" for now.
+ 		 */
+-		wth->tsprecision = WTAP_FILE_TSPREC_NSEC;
++		wth->file_tsprec = WTAP_TSPREC_NSEC;
+ 		break;
+ 	}
+ 	return 1;
+diff --git a/wiretap/netscaler.c b/wiretap/netscaler.c
+index b47d1f4..f45bf0f 100644
+--- a/wiretap/netscaler.c
++++ b/wiretap/netscaler.c
+@@ -577,7 +577,7 @@ int nstrace_open(wtap *wth, int *err, gchar **err_info)
+ 		nstrace->nstrace_buf_offset = 0;
+ 	}
+ 
+-	wth->tsprecision = WTAP_FILE_TSPREC_NSEC;
++	wth->file_tsprec = WTAP_TSPREC_NSEC;
+ 	wth->phdr.ts.secs = nstrace->nspm_curtime;
+ 	wth->phdr.ts.nsecs = 0;
+ 
+diff --git a/wiretap/netscreen.c b/wiretap/netscreen.c
+index d6bdff6..0d765c6 100644
+--- a/wiretap/netscreen.c
++++ b/wiretap/netscreen.c
+@@ -200,7 +200,7 @@ int netscreen_open(wtap *wth, int *err, gchar **err_info)
+ 	wth->snapshot_length = 0; /* not known */
+ 	wth->subtype_read = netscreen_read;
+ 	wth->subtype_seek_read = netscreen_seek_read;
+-	wth->tsprecision = WTAP_FILE_TSPREC_DSEC;
++	wth->file_tsprec = WTAP_TSPREC_DSEC;
+ 	
+ 	return 1;
+ }
+diff --git a/wiretap/nettl.c b/wiretap/nettl.c
+index e1e8809..29ae394 100644
+--- a/wiretap/nettl.c
++++ b/wiretap/nettl.c
+@@ -295,7 +295,7 @@ int nettl_open(wtap *wth, int *err, gchar **err_info)
+         g_free(nettl);
+ 	return -1;
+     }
+-    wth->tsprecision = WTAP_FILE_TSPREC_USEC;
++    wth->file_tsprec = WTAP_TSPREC_USEC;
+ 
+     return 1;
+ }
+diff --git a/wiretap/network_instruments.c b/wiretap/network_instruments.c
+index 28e863c..a1d3acb 100644
+--- a/wiretap/network_instruments.c
++++ b/wiretap/network_instruments.c
+@@ -249,7 +249,7 @@ int network_instruments_open(wtap *wth, int *err, gchar **err_info)
+     wth->subtype_close = NULL;
+     wth->subtype_sequential_close = NULL;
+     wth->snapshot_length = 0;    /* not available in header */
+-    wth->tsprecision = WTAP_FILE_TSPREC_NSEC;
++    wth->file_tsprec = WTAP_TSPREC_NSEC;
+     wth->file_type = WTAP_FILE_NETWORK_INSTRUMENTS;
+ 
+     /* reset the pointer to the first packet */
+diff --git a/wiretap/netxray.c b/wiretap/netxray.c
+index afb7ce5..b0fcc2b 100644
+--- a/wiretap/netxray.c
++++ b/wiretap/netxray.c
+@@ -494,12 +494,12 @@ int netxray_open(wtap *wth, int *err, gchar **err_info)
+ 
+ 	case WTAP_FILE_NETXRAY_OLD:
+ 		ticks_per_sec = 1000.0;
+-		wth->tsprecision = WTAP_FILE_TSPREC_MSEC;
++		wth->file_tsprec = WTAP_TSPREC_MSEC;
+ 		break;
+ 
+ 	case WTAP_FILE_NETXRAY_1_0:
+ 		ticks_per_sec = 1000.0;
+-		wth->tsprecision = WTAP_FILE_TSPREC_MSEC;
++		wth->file_tsprec = WTAP_TSPREC_MSEC;
+ 		break;
+ 
+ 	case WTAP_FILE_NETXRAY_1_1:
+@@ -510,7 +510,7 @@ int netxray_open(wtap *wth, int *err, gchar **err_info)
+ 		 * and older versions of Windows Sniffer.
+ 		 */
+ 		ticks_per_sec = 1000000.0;
+-		wth->tsprecision = WTAP_FILE_TSPREC_USEC;
++		wth->file_tsprec = WTAP_TSPREC_USEC;
+ 		break;
+ 
+ 	case WTAP_FILE_NETXRAY_2_00x:
+@@ -667,9 +667,9 @@ int netxray_open(wtap *wth, int *err, gchar **err_info)
+ 		 * XXX - Seems reasonable to use nanosecs only if TPS >= 10M
+ 		 */
+ 		if (ticks_per_sec >= 1e7)
+-			wth->tsprecision = WTAP_FILE_TSPREC_NSEC;
++			wth->file_tsprec = WTAP_TSPREC_NSEC;
+ 		else
+-			wth->tsprecision = WTAP_FILE_TSPREC_USEC;
++			wth->file_tsprec = WTAP_TSPREC_USEC;
+ 		break;
+ 
+ 	default:
+diff --git a/wiretap/ngsniffer.c b/wiretap/ngsniffer.c
+index 172143c..f999be6 100644
+--- a/wiretap/ngsniffer.c
++++ b/wiretap/ngsniffer.c
+@@ -798,7 +798,7 @@ ngsniffer_open(wtap *wth, int *err, gchar **err_info)
+ 	 * isn't stored in the capture file.
+ 	 */
+ 
+-	wth->tsprecision = WTAP_FILE_TSPREC_NSEC;	/* XXX */
++	wth->file_tsprec = WTAP_TSPREC_NSEC;	/* XXX */
+ 
+ 	return 1;
+ }
+diff --git a/wiretap/packetlogger.c b/wiretap/packetlogger.c
+index 7ff7958..af70dd9 100644
+--- a/wiretap/packetlogger.c
++++ b/wiretap/packetlogger.c
+@@ -84,7 +84,7 @@ int packetlogger_open(wtap *wth, int *err, gchar **err_info)
+ 
+ 	wth->file_type = WTAP_FILE_PACKETLOGGER;
+ 	wth->file_encap = WTAP_ENCAP_PACKETLOGGER;
+-	wth->tsprecision = WTAP_FILE_TSPREC_USEC;
++	wth->file_tsprec = WTAP_TSPREC_USEC;
+ 
+ 	return 1; /* Our kind of file */
+ }
+diff --git a/wiretap/pcapng.c b/wiretap/pcapng.c
+index 42d98e2..f50f5d2 100644
+--- a/wiretap/pcapng.c
++++ b/wiretap/pcapng.c
+@@ -370,13 +370,13 @@ typedef struct wtapng_block_s {
+         const union wtap_pseudo_header *pseudo_header;
+         struct wtap_pkthdr *packet_header;
+         const guint8 *frame_buffer;
+-        int *file_encap;
+ } wtapng_block_t;
+ 
+ /* Interface data in private struct */
+ typedef struct interface_data_s {
+         int wtap_encap;
+         guint64 time_units_per_second;
++        int tsprecision;
+ } interface_data_t;
+ 
+ typedef struct {
+@@ -641,10 +641,12 @@ pcapng_read_section_header_block(FILE_T fh, gboolean first_block,
+ 
+ /* "Interface Description Block" */
+ static int
+-pcapng_read_if_descr_block(FILE_T fh, pcapng_block_header_t *bh, pcapng_t *pn,
+-                           wtapng_block_t *wblock, int *err, gchar **err_info)
++pcapng_read_if_descr_block(wtap *wth, FILE_T fh, pcapng_block_header_t *bh,
++                           pcapng_t *pn, wtapng_block_t *wblock, int *err,
++                           gchar **err_info)
+ {
+-        guint64 time_units_per_second = 1000000; /* default */
++        guint64 time_units_per_second = 1000000; /* default = 10^6*/
++        int     tsprecision = WTAP_TSPREC_USEC;
+         int     bytes_read;
+         int     block_read;
+         int to_read, opt_cont_buf_len;
+@@ -688,6 +690,7 @@ pcapng_read_if_descr_block(FILE_T fh, pcapng_block_header_t *bh, pcapng_t *pn,
+ 
+         wblock->data.if_descr.wtap_encap = wtap_pcap_encap_to_wtap_encap(wblock->data.if_descr.link_type);
+         wblock->data.if_descr.time_units_per_second = time_units_per_second;
++        wblock->data.if_descr.tsprecision = tsprecision;
+ 
+         pcapng_debug3("pcapng_read_if_descr_block: IDB link_type %u (%s), snap %u",
+                       wblock->data.if_descr.link_type,
+@@ -819,7 +822,20 @@ pcapng_read_if_descr_block(FILE_T fh, pcapng_block_header_t *bh, pcapng_t *pn,
+                                 }
+                                 wblock->data.if_descr.time_units_per_second = time_units_per_second;
+                                 wblock->data.if_descr.if_tsresol = if_tsresol;
+-                                pcapng_debug2("pcapng_read_if_descr_block: if_tsresol %u, units/s %" G_GINT64_MODIFIER "u", wblock->data.if_descr.if_tsresol, wblock->data.if_descr.time_units_per_second);
++                                if (time_units_per_second >= 1000000000)
++                                    tsprecision = WTAP_TSPREC_NSEC;
++                                else if (time_units_per_second >= 1000000)
++                                    tsprecision = WTAP_TSPREC_USEC;
++                                else if (time_units_per_second >= 1000)
++                                    tsprecision = WTAP_TSPREC_MSEC;
++                                else if (time_units_per_second >= 100)
++                                    tsprecision = WTAP_TSPREC_CSEC;
++                                else if (time_units_per_second >= 10)
++                                    tsprecision = WTAP_TSPREC_DSEC;
++                                else
++                                    tsprecision = WTAP_TSPREC_SEC;
++                                wblock->data.if_descr.tsprecision = tsprecision;
++                                pcapng_debug3("pcapng_read_if_descr_block: if_tsresol %u, units/s %" G_GINT64_MODIFIER "u, tsprecision %d", wblock->data.if_descr.if_tsresol, wblock->data.if_descr.time_units_per_second, tsprecision);
+                         } else {
+                                 pcapng_debug1("pcapng_read_if_descr_block: if_tsresol length %u not 1 as expected", oh.option_length);
+                         }
+@@ -881,12 +897,33 @@ pcapng_read_if_descr_block(FILE_T fh, pcapng_block_header_t *bh, pcapng_t *pn,
+ 
+         g_free(option_content);
+ 
+-        if (*wblock->file_encap == WTAP_ENCAP_UNKNOWN) {
+-                *wblock->file_encap = wblock->data.if_descr.wtap_encap;
++        /*
++         * If the per-file encapsulation isn't known, set it to this
++         * interface's encapsulation.
++         *
++         * If it *is* known, and it isn't this interface's encapsulation,
++         * set it to WTAP_ENCAP_PER_PACKET, as this file doesn't
++         * have a single encapsulation for all interfaces in the file,
++         * so it probably doesn't have a single encapsulation for all
++         * packets in the file.
++         */
++        if (wth->file_encap == WTAP_ENCAP_UNKNOWN) {
++            wth->file_encap = wblock->data.if_descr.wtap_encap;
+         } else {
+-                if (*wblock->file_encap != wblock->data.if_descr.wtap_encap) {
+-                        *wblock->file_encap = WTAP_ENCAP_PER_PACKET;
+-                }
++            if (wth->file_encap != wblock->data.if_descr.wtap_encap) {
++                wth->file_encap = WTAP_ENCAP_PER_PACKET;
++            }
++        }
++
++        /*
++         * The same applies to the per-file time stamp resolution.
++         */
++        if (wth->file_tsprec == WTAP_TSPREC_UNKNOWN) {
++            wth->file_tsprec = wblock->data.if_descr.tsprecision;
++        } else {
++            if (wth->file_tsprec != wblock->data.if_descr.tsprecision) {
++                wth->file_tsprec = WTAP_TSPREC_PER_PACKET;
++            }
+         }
+ 
+         return block_read;
+@@ -1069,6 +1106,7 @@ pcapng_read_packet_block(FILE_T fh, pcapng_block_header_t *bh, pcapng_t *pn, wta
+                        pcap_get_phdr_size(int_data.wtap_encap, wblock->pseudo_header));
+         wblock->packet_header->interface_id = wblock->data.packet.interface_id;
+         wblock->packet_header->pkt_encap = int_data.wtap_encap;
++        wblock->packet_header->pkt_tsprec = int_data.tsprecision;
+ 
+         memset((void *)wblock->pseudo_header, 0, sizeof(union wtap_pseudo_header));
+         pseudo_header_len = pcap_process_pseudo_header(fh,
+@@ -1293,6 +1331,7 @@ pcapng_read_simple_packet_block(FILE_T fh, pcapng_block_header_t *bh, pcapng_t *
+         wblock->packet_header->presence_flags = WTAP_HAS_CAP_LEN|WTAP_HAS_INTERFACE_ID;
+         wblock->packet_header->interface_id = 0;
+         wblock->packet_header->pkt_encap = int_data.wtap_encap;
++        wblock->packet_header->pkt_tsprec = int_data.tsprecision;
+         wblock->packet_header->ts.secs = 0;
+         wblock->packet_header->ts.nsecs = 0;
+         wblock->packet_header->interface_id = 0;
+@@ -1870,7 +1909,7 @@ pcapng_read_unknown_block(FILE_T fh, pcapng_block_header_t *bh, pcapng_t *pn _U_
+ 
+ 
+ static int
+-pcapng_read_block(FILE_T fh, gboolean first_block, pcapng_t *pn, wtapng_block_t *wblock, int *err, gchar **err_info)
++pcapng_read_block(wtap *wth, FILE_T fh, gboolean first_block, pcapng_t *pn, wtapng_block_t *wblock, int *err, gchar **err_info)
+ {
+         int block_read;
+         int bytes_read;
+@@ -1918,7 +1957,7 @@ pcapng_read_block(FILE_T fh, gboolean first_block, pcapng_t *pn, wtapng_block_t
+                         bytes_read = pcapng_read_section_header_block(fh, first_block, &bh, pn, wblock, err, err_info);
+                         break;
+                 case(BLOCK_TYPE_IDB):
+-                        bytes_read = pcapng_read_if_descr_block(fh, &bh, pn, wblock, err, err_info);
++                        bytes_read = pcapng_read_if_descr_block(wth, fh, &bh, pn, wblock, err, err_info);
+                         break;
+                 case(BLOCK_TYPE_PB):
+                         bytes_read = pcapng_read_packet_block(fh, &bh, pn, wblock, err, err_info, FALSE);
+@@ -2007,6 +2046,7 @@ pcapng_process_idb(wtap *wth, pcapng_t *pcapng, wtapng_block_t *wblock)
+ 
+         interface_data.wtap_encap = wblock->data.if_descr.wtap_encap;
+         interface_data.time_units_per_second = wblock->data.if_descr.time_units_per_second;
++        interface_data.tsprecision = wblock->data.if_descr.tsprecision;
+ 
+         g_array_append_val(pcapng->interface_data, interface_data);
+         pcapng->number_of_interfaces++;
+@@ -2037,11 +2077,10 @@ pcapng_open(wtap *wth, int *err, gchar **err_info)
+         wblock.frame_buffer = NULL;
+         wblock.pseudo_header = NULL;
+         wblock.packet_header = NULL;
+-        wblock.file_encap = &wth->file_encap;
+ 
+         pcapng_debug0("pcapng_open: opening file");
+         /* read first block */
+-        bytes_read = pcapng_read_block(wth->fh, TRUE, &pn, &wblock, err, err_info);
++        bytes_read = pcapng_read_block(wth, wth->fh, TRUE, &pn, &wblock, err, err_info);
+         if (bytes_read <= 0) {
+                 pcapng_debug0("pcapng_open: couldn't read first SHB");
+                 *err = file_error(wth->fh, err_info);
+@@ -2075,7 +2114,7 @@ pcapng_open(wtap *wth, int *err, gchar **err_info)
+ 
+         wth->file_encap = WTAP_ENCAP_UNKNOWN;
+         wth->snapshot_length = 0;
+-        wth->tsprecision = WTAP_FILE_TSPREC_NSEC;
++        wth->file_tsprec = WTAP_TSPREC_NSEC;
+         pcapng = (pcapng_t *)g_malloc(sizeof(pcapng_t));
+         wth->priv = (void *)pcapng;
+         *pcapng = pn;
+@@ -2120,7 +2159,7 @@ pcapng_open(wtap *wth, int *err, gchar **err_info)
+                 if (bh.block_type != BLOCK_TYPE_IDB) {
+                         break;  /* No more IDB:s */
+                 }
+-                bytes_read = pcapng_read_block(wth->fh, FALSE, &pn, &wblock, err, err_info);
++                bytes_read = pcapng_read_block(wth, wth->fh, FALSE, &pn, &wblock, err, err_info);
+                 if (bytes_read == 0) {
+                         pcapng_debug0("No more IDBs available...");
+                         break;
+@@ -2164,14 +2203,13 @@ pcapng_read(wtap *wth, int *err, gchar **err_info, gint64 *data_offset)
+         wblock.frame_buffer  = buffer_start_ptr(wth->frame_buffer);
+         wblock.pseudo_header = &wth->pseudo_header;
+         wblock.packet_header = &wth->phdr;
+-        wblock.file_encap    = &wth->file_encap;
+ 
+         pcapng->add_new_ipv4 = wth->add_new_ipv4;
+         pcapng->add_new_ipv6 = wth->add_new_ipv6;
+ 
+         /* read next block */
+         while (1) {
+-                bytes_read = pcapng_read_block(wth->fh, FALSE, pcapng, &wblock, err, err_info);
++                bytes_read = pcapng_read_block(wth, wth->fh, FALSE, pcapng, &wblock, err, err_info);
+                 if (bytes_read <= 0) {
+                         pcapng_debug1("pcapng_read: data_offset is finally %" G_GINT64_MODIFIER "d", *data_offset);
+                         pcapng_debug0("pcapng_read: couldn't read packet block");
+@@ -2183,6 +2221,7 @@ pcapng_read(wtap *wth, int *err, gchar **err_info, gint64 *data_offset)
+                 case(BLOCK_TYPE_SHB):
+                         /* We don't currently support multi-section files. */
+                         wth->phdr.pkt_encap = WTAP_ENCAP_UNKNOWN;
++                        wth->phdr.pkt_tsprec = WTAP_TSPREC_UNKNOWN;
+                         *err = WTAP_ERR_UNSUPPORTED;
+                         *err_info = g_strdup_printf("pcapng: multi-section files not currently supported.");
+                         return FALSE;
+@@ -2289,10 +2328,9 @@ pcapng_seek_read(wtap *wth, gint64 seek_off,
+         wblock.frame_buffer = pd;
+         wblock.pseudo_header = pseudo_header;
+         wblock.packet_header = &wth->phdr;
+-        wblock.file_encap = &wth->file_encap;
+ 
+         /* read the block */
+-        bytes_read = pcapng_read_block(wth->random_fh, FALSE, pcapng, &wblock, err, err_info);
++        bytes_read = pcapng_read_block(wth, wth->random_fh, FALSE, pcapng, &wblock, err, err_info);
+         if (bytes_read <= 0) {
+                 *err = file_error(wth->random_fh, err_info);
+                 pcapng_debug3("pcapng_seek_read: couldn't read packet block (err=%d, errno=%d, bytes_read=%d).",
+diff --git a/wiretap/pppdump.c b/wiretap/pppdump.c
+index a7a619a..7cb4c4a 100644
+--- a/wiretap/pppdump.c
++++ b/wiretap/pppdump.c
+@@ -297,7 +297,7 @@ pppdump_open(wtap *wth, int *err, gchar **err_info)
+ 	wth->subtype_read = pppdump_read;
+ 	wth->subtype_seek_read = pppdump_seek_read;
+ 	wth->subtype_close = pppdump_close;
+-	wth->tsprecision = WTAP_FILE_TSPREC_DSEC;
++	wth->file_tsprec = WTAP_TSPREC_DSEC;
+ 
+ 	state->seek_state = g_new(pppdump_t,1);
+ 
+diff --git a/wiretap/radcom.c b/wiretap/radcom.c
+index 3a00500..ed01201 100644
+--- a/wiretap/radcom.c
++++ b/wiretap/radcom.c
+@@ -169,7 +169,7 @@ int radcom_open(wtap *wth, int *err, gchar **err_info)
+ 	wth->subtype_read = radcom_read;
+ 	wth->subtype_seek_read = radcom_seek_read;
+ 	wth->snapshot_length = 0; /* not available in header, only in frame */
+-	wth->tsprecision = WTAP_FILE_TSPREC_USEC;
++	wth->file_tsprec = WTAP_TSPREC_USEC;
+ 
+ #if 0
+ 	tm.tm_year = pletohs(&start_date.year)-1900;
+diff --git a/wiretap/snoop.c b/wiretap/snoop.c
+index 490f86a..6acded0 100644
+--- a/wiretap/snoop.c
++++ b/wiretap/snoop.c
+@@ -440,7 +440,7 @@ int snoop_open(wtap *wth, int *err, gchar **err_info)
+ 	wth->subtype_seek_read = snoop_seek_read;
+ 	wth->file_encap = file_encap;
+ 	wth->snapshot_length = 0;	/* not available in header */
+-	wth->tsprecision = WTAP_FILE_TSPREC_USEC;
++	wth->file_tsprec = WTAP_TSPREC_USEC;
+ 	return 1;
+ }
+ 
+diff --git a/wiretap/tnef.c b/wiretap/tnef.c
+index 3322459..db0a03c 100644
+--- a/wiretap/tnef.c
++++ b/wiretap/tnef.c
+@@ -128,7 +128,7 @@ int tnef_open(wtap *wth, int *err, gchar **err_info)
+ 
+   wth->subtype_read = tnef_read;
+   wth->subtype_seek_read = tnef_seek_read;
+-  wth->tsprecision = WTAP_FILE_TSPREC_SEC;
++  wth->file_tsprec = WTAP_TSPREC_SEC;
+ 
+   return 1;
+ }
+diff --git a/wiretap/toshiba.c b/wiretap/toshiba.c
+index 6a13286..02c2145 100644
+--- a/wiretap/toshiba.c
++++ b/wiretap/toshiba.c
+@@ -226,7 +226,7 @@ int toshiba_open(wtap *wth, int *err, gchar **err_info)
+ 	wth->snapshot_length = 0; /* not known */
+ 	wth->subtype_read = toshiba_read;
+ 	wth->subtype_seek_read = toshiba_seek_read;
+-	wth->tsprecision = WTAP_FILE_TSPREC_CSEC;
++	wth->file_tsprec = WTAP_TSPREC_CSEC;
+ 
+ 	return 1;
+ }
+diff --git a/wiretap/visual.c b/wiretap/visual.c
+index f639d17..cf3a4fa 100644
+--- a/wiretap/visual.c
++++ b/wiretap/visual.c
+@@ -269,7 +269,7 @@ int visual_open(wtap *wth, int *err, gchar **err_info)
+     /* Set up the pointers to the handlers for this file type */
+     wth->subtype_read = visual_read;
+     wth->subtype_seek_read = visual_seek_read;
+-    wth->tsprecision = WTAP_FILE_TSPREC_USEC;
++    wth->file_tsprec = WTAP_TSPREC_USEC;
+ 
+     /* Add Visual-specific information to the wiretap struct for later use. */
+     visual = (struct visual_read_info *)g_malloc(sizeof(struct visual_read_info));
+diff --git a/wiretap/vms.c b/wiretap/vms.c
+index bd8143d..3dbdf3f 100644
+--- a/wiretap/vms.c
++++ b/wiretap/vms.c
+@@ -270,7 +270,7 @@ int vms_open(wtap *wth, int *err, gchar **err_info)
+     wth->snapshot_length = 0; /* not known */
+     wth->subtype_read = vms_read;
+     wth->subtype_seek_read = vms_seek_read;
+-	wth->tsprecision = WTAP_FILE_TSPREC_CSEC;
++    wth->file_tsprec = WTAP_TSPREC_CSEC;
+ 
+     return 1;
+ }
+diff --git a/wiretap/vwr.c b/wiretap/vwr.c
+index dd950e5..d3f04c9 100644
+--- a/wiretap/vwr.c
++++ b/wiretap/vwr.c
+@@ -655,7 +655,7 @@ int vwr_open(wtap *wth, int *err, gchar **err_info)
+     wth->snapshot_length = 0;
+     wth->subtype_read = vwr_read;
+     wth->subtype_seek_read = vwr_seek_read;
+-    wth->tsprecision = WTAP_FILE_TSPREC_USEC;
++    wth->file_tsprec = WTAP_TSPREC_USEC;
+ 
+     if (fpgaVer == vVW510021_W_FPGA) {
+         wth->file_type = WTAP_FILE_VWR_80211;
+diff --git a/wiretap/wtap-int.h b/wiretap/wtap-int.h
+index 5ed1c07..91a1bb7 100644
+--- a/wiretap/wtap-int.h
++++ b/wiretap/wtap-int.h
+@@ -68,10 +68,18 @@ struct wtap {
+     int                         file_encap;    /* per-file, for those
+                                                 * file formats that have
+                                                 * per-file encapsulation
+-                                                * types
++                                                * types rather than per-packet
++						* encapsulation types
+                                                 */
+-    int                         tsprecision;   /* timestamp precision of the lower 32bits
+-                                                * e.g. WTAP_FILE_TSPREC_USEC
++    int                         file_tsprec;   /* per-file timestamp precision
++                                                * of the fractional part of
++						* the time stamp, for those
++						* file formats that have
++						* per-file timestamp
++						* precision rather than
++						* per-packet timestamp
++						* precision
++						* e.g. WTAP_TSPREC_USEC
+                                                 */
+     wtap_new_ipv4_callback_t    add_new_ipv4;
+     wtap_new_ipv6_callback_t    add_new_ipv6;
+@@ -105,7 +113,7 @@ struct wtap_dumper {
+     subtype_close_func      subtype_close;
+ 
+     int                     tsprecision;    /**< timestamp precision of the lower 32bits
+-                                             * e.g. WTAP_FILE_TSPREC_USEC
++                                             * e.g. WTAP_TSPREC_USEC
+                                              */
+     struct addrinfo         *addrinfo_list;
+     struct wtapng_section_s *shb_hdr;
+diff --git a/wiretap/wtap.c b/wiretap/wtap.c
+index 7b9ffb2..64b8c64 100644
+--- a/wiretap/wtap.c
++++ b/wiretap/wtap.c
+@@ -97,9 +97,9 @@ wtap_file_encap(wtap *wth)
+ }
+ 
+ int
+-wtap_file_tsprecision(wtap *wth)
++wtap_file_tsprec(wtap *wth)
+ {
+-	return wth->tsprecision;
++	return wth->file_tsprec;
+ }
+ 
+ wtapng_section_t *
+@@ -838,8 +838,11 @@ wtap_read(wtap *wth, int *err, gchar **err_info, gint64 *data_offset)
+ 	 * capture file type doesn't have to set it), and if it
+ 	 * *is* WTAP_ENCAP_PER_PACKET, the caller needs to set it
+ 	 * anyway.
++         *
++         * Do the same for the packet time stamp resolution.
+ 	 */
+ 	wth->phdr.pkt_encap = wth->file_encap;
++        wth->phdr.pkt_tsprec = wth->file_tsprec;
+ 
+ 	if (!wth->subtype_read(wth, err, err_info, data_offset)) {
+ 		/*
+diff --git a/wiretap/wtap.h b/wiretap/wtap.h
+index 55b295e..4614849 100644
+--- a/wiretap/wtap.h
++++ b/wiretap/wtap.h
+@@ -310,12 +310,14 @@ extern "C" {
+ #define WTAP_NUM_FILE_TYPES                     wtap_get_num_file_types()
+ 
+ /* timestamp precision (currently only these values are supported) */
+-#define WTAP_FILE_TSPREC_SEC		0
+-#define WTAP_FILE_TSPREC_DSEC		1
+-#define WTAP_FILE_TSPREC_CSEC		2
+-#define WTAP_FILE_TSPREC_MSEC		3
+-#define WTAP_FILE_TSPREC_USEC		6
+-#define WTAP_FILE_TSPREC_NSEC		9
++#define WTAP_TSPREC_UNKNOWN    -2
++#define WTAP_TSPREC_PER_PACKET -1
++#define WTAP_TSPREC_SEC         0
++#define WTAP_TSPREC_DSEC        1
++#define WTAP_TSPREC_CSEC        2
++#define WTAP_TSPREC_MSEC        3
++#define WTAP_TSPREC_USEC        6
++#define WTAP_TSPREC_NSEC        9
+ 
+ /*
+  * Maximum packet size we'll support.
+@@ -846,7 +848,8 @@ struct wtap_pkthdr {
+ 	struct wtap_nstime	ts;
+ 	guint32			caplen;		/* data length in the file */
+ 	guint32			len;		/* data length on the wire */
+-	int			pkt_encap;
++	int			pkt_encap;      /* WTAP_ENCAP_ value for this packet */
++        int                     pkt_tsprec;     /* WTAP_TSPREC_ value for this packet */
+ 	/* pcapng variables */
+ 	guint32			interface_id;   /* identifier of the interface. */
+ 	/* options */
+@@ -930,6 +933,7 @@ typedef struct wtapng_iface_descriptions_s {
+ typedef struct wtapng_if_descr_s {
+     int                    wtap_encap;            /**< link_type translated to wtap_encap */
+     guint64                time_units_per_second;
++    int                    tsprecision;           /**< WTAP_TSPREC_ value for this interface */
+     /* mandatory */
+     guint16                link_type;
+     guint32                snap_len;
+@@ -1079,7 +1083,7 @@ gboolean wtap_iscompressed(wtap *wth);
+ guint wtap_snapshot_length(wtap *wth); /* per file */
+ int wtap_file_type(wtap *wth);
+ int wtap_file_encap(wtap *wth);
+-int wtap_file_tsprecision(wtap *wth);
++int wtap_file_tsprec(wtap *wth);
+ wtapng_section_t* wtap_file_get_shb_info(wtap *wth);
+ wtapng_iface_descriptions_t *wtap_file_get_idb_info(wtap *wth);
+ void wtap_write_shb_comment(wtap *wth, gchar *comment);

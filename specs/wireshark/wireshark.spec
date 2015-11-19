@@ -17,7 +17,7 @@ Version:	1.8.10
 %if %{svn_version}
 Release: 	0.%{svn_version}%{?dist}
 %else
-Release: 	8%{?dist}
+Release: 	17%{?dist}
 %endif
 License: 	GPL+
 Group: 		Applications/Internet
@@ -70,6 +70,19 @@ Patch30:		wireshark-1.8.15-CVE-2014-6426.patch
 Patch31:		wireshark-1.8.15-CVE-2014-6427.patch
 Patch32:		wireshark-1.8.15-CVE-2014-6428.patch
 Patch33:		wireshark-1.8.15-CVE-2014-6429.patch
+Patch34:		wireshark-1.8.10-nanosecond-timestamps.patch
+Patch35:		wireshark-1.8.10-reading-from-pipes.patch
+Patch36:		wireshark-1.8.10-aes-gcm.patch
+Patch37:		wireshark-1.8.10-dtls-elliptic-curves.patch
+Patch38:		wireshark-1.10.11-CVE-2014-8710.patch
+Patch39:		wireshark-1.10.11-CVE-2014-8711.patch
+Patch40:		wireshark-1.10.11-CVE-2014-8712.patch
+Patch41:		wireshark-1.10.11-CVE-2014-8713.patch
+Patch42:		wireshark-1.10.11-CVE-2014-8714.patch
+Patch43:		wireshark-1.10.12-CVE-2015-0562.patch
+Patch44:		wireshark-1.10.12-CVE-2015-0564.patch
+Patch45:		wireshark-1.10.13-CVE-2015-2189.patch
+Patch46:		wireshark-1.10.13-CVE-2015-2191.patch
 
 Url: 		http://www.wireshark.org/
 BuildRoot: 	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
@@ -77,7 +90,8 @@ BuildRequires:	libpcap-devel >= 0.9
 BuildRequires: 	libsmi-devel
 BuildRequires: 	zlib-devel, bzip2-devel
 BuildRequires:  openssl-devel
-BuildRequires:	glib2-devel, gtk2-devel
+BuildRequires:	glib2-devel
+BuildRequires:	gtk2-devel > 2.24
 BuildRequires:  elfutils-devel, krb5-devel
 BuildRequires:  python, pcre-devel, libselinux
 BuildRequires:  gnutls-devel
@@ -94,6 +108,7 @@ BuildRequires: portaudio-devel
 %if %{with_lua}
 BuildRequires:	lua-devel
 %endif
+Requires:	shadow-utils
 Obsoletes:	ethereal
 Provides:	ethereal
 
@@ -101,7 +116,7 @@ Provides:	ethereal
 %package	gnome
 Summary:	Gnome desktop integration for wireshark and wireshark-usermode
 Group:		Applications/Internet
-Requires: 	gtk2
+Requires: 	gtk2 > 2.24
 Requires:	usermode >= 1.37
 Requires:	wireshark = %{version}-%{release}
 Requires:	libsmi
@@ -180,6 +195,20 @@ and plugins.
 %patch31 -p1 -b .cve-2014-6427
 %patch32 -p1 -b .cve-2014-6428
 %patch33 -p1 -b .cve-2014-6429
+%patch34 -p1 -b .nanosecond-timestamps
+%patch35 -p1 -b .reading-from-pipes
+%patch36 -p1 -b .aes-gcm
+%patch37 -p1 -b .dtls-elliptic-curves
+%patch38 -p1 -b .cve-2014-8710
+%patch39 -p1 -b .cve-2014-8711
+%patch40 -p1 -b .cve-2014-8712
+%patch41 -p1 -b .cve-2014-8713
+%patch42 -p1 -b .cve-2014-8714
+%patch43 -p1 -b .cve-2015-0562
+%patch44 -p1 -b .cve-2015-0564
+%patch45 -p1 -b .cve-2015-2189
+%patch46 -p1 -b .cve-2015-2191
+
 
 %build
 %ifarch s390 s390x sparcv9 sparc64
@@ -192,9 +221,9 @@ export RPM_OPT_FLAGS=${RPM_OPT_FLAGS//-fstack-protector/-fstack-protector-all}
 export CFLAGS="$RPM_OPT_FLAGS $CPPFLAGS $PIECFLAGS -D_LARGEFILE64_SOURCE"
 export CXXFLAGS="$RPM_OPT_FLAGS $CPPFLAGS $PIECFLAGS -D_LARGEFILE64_SOURCE"
 export LDFLAGS="$LDFLAGS -lm -lcrypto -pie"
-%if %{svn_version}
+
+# Due to libtool versions mismatch in configure.ac
 ./autogen.sh
-%endif
 
 %configure \
    --bindir=%{_sbindir} \
@@ -286,6 +315,7 @@ mkdir -p "${IDIR}/wsutil"
 install -m 644 color.h register.h		"${IDIR}/"
 install -m 644 cfile.h file.h			"${IDIR}/"
 install -m 644 packet-range.h print.h   	"${IDIR}/"
+install -m 644 frame_data_sequence.h            "${IDIR}/"
 install -m 644 epan/*.h				"${IDIR}/epan/"
 install -m 644 epan/crypt/*.h			"${IDIR}/epan/crypt"
 install -m 644 epan/ftypes/*.h			"${IDIR}/epan/ftypes"
@@ -422,6 +452,49 @@ gtk-update-icon-cache %{_datadir}/icons/hicolor &>/dev/null || :
 %{_datadir}/aclocal/*
 
 %changelog
+* Mon May  4 2015 Peter Hatina <phatina@redhat.com> - 1.8.10-17
+- security patches
+- Resolves: CVE-2015-2189
+            CVE-2015-2191
+
+* Thu Apr  2 2015 Peter Hatina <phatina@redhat.com> - 1.8.10-16
+- security patches
+- Resolves: CVE-2014-8710
+            CVE-2014-8711
+            CVE-2014-8712
+            CVE-2014-8713
+            CVE-2014-8714
+            CVE-2015-0562
+            CVE-2015-0564
+
+* Tue Mar  3 2015 Peter Hatina <phatina@redhat.com> - 1.8.10-15
+- fix AES-GCM decoding
+- Related: rhbz#1095065
+
+* Tue Jan 20 2015 Peter Hatina <phatina@redhat.com> - 1.8.10-14
+- fix requires: shadow-utils
+- Resolves: rhbz#1121275
+
+* Tue Jan 20 2015 Peter Hatina <phatina@redhat.com> - 1.8.10-13
+- add elliptic curves decoding in DTLS HELLO
+- Resolves: rhbz#1131203
+
+* Tue Jan 20 2015 Peter Hatina <phatina@redhat.com> - 1.8.10-12
+- add AES-GCM decryption
+- Resolves: rhbz#1095065
+
+* Mon Jan 19 2015 Peter Hatina <phatina@redhat.com> - 1.8.10-11
+- fix reading from pipes
+- Resolves: rhbz#1104210
+
+* Mon Jan 19 2015 Peter Hatina <phatina@redhat.com> - 1.8.10-10
+- introduced nanosecond time precision
+- Resolves: rhbz#1146578
+
+* Mon Jan 19 2015 Peter Hatina <phatina@redhat.com> - 1.8.10-9
+- fix gtk2 required version
+- Resolves: rhbz#1160388
+
 * Fri Oct  3 2014 Peter Hatina <phatina@redhat.com> - 1.8.10-8
 - security patches
 - Resolves: CVE-2014-6421

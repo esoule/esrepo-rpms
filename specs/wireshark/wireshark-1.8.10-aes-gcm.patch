@@ -1,0 +1,91 @@
+diff --git a/epan/dissectors/packet-ipsec.c b/epan/dissectors/packet-ipsec.c
+index 2df2d9e..7d01ee7 100644
+--- a/epan/dissectors/packet-ipsec.c
++++ b/epan/dissectors/packet-ipsec.c
+@@ -129,6 +129,9 @@ static dissector_table_t ip_dissector_table;
+ /* Encryption algorithm defined in RFC 2144 */
+ #define IPSEC_ENCRYPT_CAST5_CBC 7
+ 
++/* Encryption algorithm defined in RFC 4106 */
++#define IPSEC_ENCRYPT_AES_GCM 8
++
+ /* Authentication algorithms defined in RFC 4305 */
+ #define IPSEC_AUTH_NULL 0
+ #define IPSEC_AUTH_HMAC_SHA1_96 1
+@@ -137,10 +140,11 @@ static dissector_table_t ip_dissector_table;
+ #define IPSEC_AUTH_HMAC_MD5_96 4
+ #define IPSEC_AUTH_HMAC_RIPEMD160_96 5
+ /* define IPSEC_AUTH_AES_XCBC_MAC_96 6 */
+-#define IPSEC_AUTH_ANY_96BIT 7
+-#define IPSEC_AUTH_ANY_128BIT 8
+-#define IPSEC_AUTH_ANY_192BIT 9
+-#define IPSEC_AUTH_ANY_256BIT 10
++#define IPSEC_AUTH_ANY_64BIT 8
++#define IPSEC_AUTH_ANY_96BIT 9
++#define IPSEC_AUTH_ANY_128BIT 10
++#define IPSEC_AUTH_ANY_192BIT 11
++#define IPSEC_AUTH_ANY_256BIT 12
+ 
+ #define IPSEC_IPV6_ADDR_LEN 128
+ #define IPSEC_IPV4_ADDR_LEN 32
+@@ -1142,6 +1146,10 @@ dissect_esp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
+                     esp_auth_len = 0;
+                     break;
+ 
++                case IPSEC_AUTH_ANY_64BIT:
++                    esp_auth_len = 8;
++                    break;
++
+                 case IPSEC_AUTH_HMAC_SHA256_128:
+                 case IPSEC_AUTH_ANY_128BIT:
+                     esp_auth_len = 16;
+@@ -1237,6 +1245,7 @@ dissect_esp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
+                         authentication_check_using_hmac_libgcrypt = TRUE;
+                         break;
+ 
++                    case IPSEC_AUTH_ANY_64BIT:
+                     case IPSEC_AUTH_ANY_96BIT:
+                     case IPSEC_AUTH_ANY_128BIT:
+                     case IPSEC_AUTH_ANY_192BIT:
+@@ -1491,6 +1500,7 @@ dissect_esp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
+                         break;
+ 
+                     case IPSEC_ENCRYPT_AES_CTR :
++                    case IPSEC_ENCRYPT_AES_GCM :
+                         /* RFC 3686 says :
+                         AES supports three key sizes: 128 bits, 192 bits,
+                         and 256 bits.  The default key size is 128 bits,
+@@ -1532,7 +1542,7 @@ dissect_esp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
+                                 break;
+ 
+                             default:
+-                                fprintf (stderr, "<ESP Preferences> Error in Encryption Algorithm AES-CTR : Bad Keylen (%i Bits)\n",
++                                fprintf (stderr, "<ESP Preferences> Error in Encryption Algorithm AES-CTR / AES-GCM : Bad Keylen (%i Bits)\n",
+                                     esp_crypt_key_len * 8);
+                                 decrypt_ok = FALSE;
+                             }
+@@ -1682,6 +1692,8 @@ dissect_esp(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree)
+                                     memcpy(ctr_block, esp_crypt_key + esp_crypt_key_len - 4, 4);
+                                     memcpy(ctr_block + 4, encrypted_data, 8);
+                                     ctr_block[15] = 1;
++                                    if (esp_crypt_algo == IPSEC_ENCRYPT_AES_GCM)
++                                      ctr_block[15]++;
+                                     err = gcry_cipher_setctr (cypher_hd, ctr_block, 16);
+                                     if (!err)
+                                     {
+@@ -2040,6 +2052,7 @@ proto_register_ipsec(void)
+     { IPSEC_ENCRYPT_CAST5_CBC, "CAST5-CBC [RFC2144]" },
+     { IPSEC_ENCRYPT_BLOWFISH_CBC, "BLOWFISH-CBC [RFC2451]" },
+     { IPSEC_ENCRYPT_TWOFISH_CBC, "TWOFISH-CBC" },
++    { IPSEC_ENCRYPT_AES_GCM, "AES-GCM [RFC4106]" },
+     { 0x00, NULL }
+   };
+ 
+@@ -2051,6 +2064,7 @@ proto_register_ipsec(void)
+     { IPSEC_AUTH_HMAC_MD5_96, "HMAC-MD5-96 [RFC2403]" },
+     { IPSEC_AUTH_HMAC_RIPEMD160_96, "MAC-RIPEMD-160-96 [RFC2857]" },
+ /*    { IPSEC_AUTH_AES_XCBC_MAC_96, "AES-XCBC-MAC-96 [RFC3566]" }, */
++    { IPSEC_AUTH_ANY_64BIT, "ANY 64 bit authentication [no checking]" },
+     { IPSEC_AUTH_ANY_96BIT, "ANY 96 bit authentication [no checking]" },
+     { IPSEC_AUTH_ANY_128BIT, "ANY 128 bit authentication [no checking]" },
+     { IPSEC_AUTH_ANY_192BIT, "ANY 192 bit authentication [no checking]" },
