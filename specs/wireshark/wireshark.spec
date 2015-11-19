@@ -17,15 +17,17 @@ Version:	1.8.10
 %if %{svn_version}
 Release: 	0.%{svn_version}%{?dist}
 %else
-Release: 	8.1.1%{?dist}
+Release: 	8%{?dist}
 %endif
 License: 	GPL+
 Group: 		Applications/Internet
 %if %{svn_version}
 Source0:	http://www.wireshark.org/download/automated/src/wireshark-%{version}-SVN-%{svn_version}.tar.bz2
 %else
-Source0:	http://wireshark.org/download/src/all-versions/%{name}-%{version}.tar.bz2
+Source0:	http://wireshark.org/download/src/%{name}-%{version}.tar.bz2
 %endif
+Source1:	wireshark.pam
+Source2:	wireshark.console
 Source3:	wireshark.desktop
 Source4:	wireshark-autoconf.m4
 Source5:	wireshark-mime-package.xml
@@ -196,11 +198,11 @@ export LDFLAGS="$LDFLAGS -lm -lcrypto -pie"
 
 %configure \
    --bindir=%{_sbindir} \
-   --with-zlib \
+   --enable-zlib \
    --enable-ipv6 \
    --with-libsmi \
    --with-gnu-ld \
-   --with-gtk3=no \
+   --enable-gtk2 \
    --with-pic \
 %if %{with_adns}
    --with-adns \
@@ -219,10 +221,8 @@ export LDFLAGS="$LDFLAGS -lm -lcrypto -pie"
 %endif
    --with-ssl \
    --disable-warnings-as-errors \
-   --with-plugins=%{_libdir}/%{name}/plugins/%{version} \
-   --with-dumpcap-group="wireshark" \
-   --enable-setcap-install \
-   --enable-airpcap
+   --with-plugindir=%{_libdir}/%{name}/plugins/%{version} \
+   --enable-aircap
 
 # Remove rpath
 sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
@@ -240,6 +240,14 @@ make DESTDIR=$RPM_BUILD_ROOT install
 
 # Symlink tshark to tethereal
 ln -s tshark $RPM_BUILD_ROOT%{_sbindir}/tethereal
+
+# install support files for usermode, gnome and kde
+mkdir -p $RPM_BUILD_ROOT/%{_sysconfdir}/pam.d
+install -m 644 %{SOURCE1} $RPM_BUILD_ROOT/%{_sysconfdir}/pam.d/wireshark
+mkdir -p $RPM_BUILD_ROOT/%{_sysconfdir}/security/console.apps
+install -m 644 %{SOURCE2} $RPM_BUILD_ROOT/%{_sysconfdir}/security/console.apps/wireshark
+mkdir -p $RPM_BUILD_ROOT/%{_bindir}
+ln -s consolehelper $RPM_BUILD_ROOT/%{_bindir}/wireshark
 
 # Install python stuff.
 mkdir -p $RPM_BUILD_ROOT%{python_sitelib}
@@ -362,7 +370,7 @@ gtk-update-icon-cache %{_datadir}/icons/hicolor &>/dev/null || :
 %{_sbindir}/dftest
 %{_sbindir}/capinfos
 %{_sbindir}/randpkt
-%attr(0750, root, wireshark) %caps(cap_net_raw,cap_net_admin=eip) %{_sbindir}/dumpcap
+%{_sbindir}/dumpcap
 %{_sbindir}/tethereal
 %{_sbindir}/rawshark
 %{python_sitelib}/*
@@ -379,6 +387,8 @@ gtk-update-icon-cache %{_datadir}/icons/hicolor &>/dev/null || :
 %{_mandir}/man1/dftest.*
 %{_mandir}/man1/randpkt.*
 %{_datadir}/wireshark
+%config(noreplace) %{_sysconfdir}/pam.d/wireshark
+%config(noreplace) %{_sysconfdir}/security/console.apps/wireshark
 %if %{with_lua}
 %exclude %{_datadir}/wireshark/init.lua
 %endif
@@ -396,6 +406,7 @@ gtk-update-icon-cache %{_datadir}/icons/hicolor &>/dev/null || :
 %{_datadir}/icons/gnome/48x48/mimetypes/application-x-pcap.png
 %{_datadir}/icons/gnome/256x256/mimetypes/application-x-pcap.png
 %{_datadir}/mime/packages/wireshark.xml
+%{_bindir}/wireshark
 %{_sbindir}/wireshark
 %{_mandir}/man1/wireshark.*
 
@@ -411,18 +422,6 @@ gtk-update-icon-cache %{_datadir}/icons/hicolor &>/dev/null || :
 %{_datadir}/aclocal/*
 
 %changelog
-* Wed Oct 29 2014 Evgueni Souleimanov <esoule@100500.ca> 1.8.10-8.1.1
-- run Wireshark GUI as user, not root (remove pam configs)
-- allow packet capture to users who are members of group
-  wireshark (using setcap)
-- replace unrecognized configure options with equivalent
-  ones that are recognized:
-    --with-zlib
-    --with-gtk3=no
-    --with-plugins
-    --enable-airpcap
-- update URL to source tarball
-
 * Fri Oct  3 2014 Peter Hatina <phatina@redhat.com> - 1.8.10-8
 - security patches
 - Resolves: CVE-2014-6421
