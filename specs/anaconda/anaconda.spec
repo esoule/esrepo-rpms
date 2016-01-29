@@ -4,7 +4,7 @@
 Summary: Graphical system installer
 Name:    anaconda
 Version: 13.21.239
-Release: 1%{?dist}
+Release: 1.1.101%{?dist}
 License: GPLv2+
 Group:   Applications/System
 URL:     http://fedoraproject.org/wiki/Anaconda
@@ -19,6 +19,7 @@ Source0: %{name}-%{version}.tar.bz2
 Patch1000: anaconda-centos-installclass.patch
 Patch1002: anaconda-centos-droprepos.patch
 Patch1003: anaconda-centos-unsupported-hardware-note.patch
+Patch2001: anaconda-livecd-mtab-readonly.patch
 
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
@@ -172,6 +173,7 @@ system.  These files are of little use on an already installed system.
 %patch1000 -p1
 %patch1002 -p1
 %patch1003 -p1
+%patch2001 -p1
 
 %build
 %configure --disable-static
@@ -230,6 +232,10 @@ update-desktop-database &> /dev/null || :
 %endif
 
 %changelog
+* Thu Jan 28 2016 Evgueni Souleimanov <esoule@100500.ca> - 13.21.239-1.1.101
+- fix Python exception when writing /mnt/sysimage/etc/mtab, now a
+  symbolic link to read-only /proc/self/mounts.
+
 * Wed Jul 22 2015 Johnny Hughes <johnny@centos.org> - 13.21.239-1
 - Roll in CentOS Branding
 
