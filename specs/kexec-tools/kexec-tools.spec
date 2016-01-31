@@ -1,6 +1,6 @@
 Name: kexec-tools
 Version: 2.0.0 
-Release: 286%{?dist}
+Release: 286.1.101%{?dist}
 License: GPLv2
 Group: Applications/System
 Summary: The kexec/kdump userspace component.
@@ -477,6 +477,11 @@ done
 %endif
 
 %changelog
+* Sun Jan 31 2016 Evgueni Souleimanov <esoule@100500.ca> - 2.0.0-286.1.101
+- fix mkdumprd errors (due to /etc/mtab symbolic link to /proc/self/mounts)
+  "/sbin/mkdumprd: line *: test: /sbin/fsck.rootfs: binary operator expected"
+  and "fsck.rootfs \n ext3 not found".
+
 * Tue Jun 02 2015 Baoquan He <bhe@redhat.com> - 2.0.0-286
 - update kexec-kdump-howto.txt, resolves bug 949376
 - mkdumprd: Load the mlx4_core module if it is needed in the 2nd kernel, resolves bug 1099589

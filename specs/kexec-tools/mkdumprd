@@ -1396,7 +1396,7 @@ if [ -n "$withusb" -a "x$PROBE" == "xyes" ]; then
     # label we could still get some odd behaviors
     for fs in / /boot ; do
         esc=$(echo $fs | sed 's,/,\\/,g')
-        dev=$(mount | awk "/ on ${esc} / { print \$1 }" | sed 's/[0-9]*$//' | cut -d/ -f3)
+        dev=$(mount | grep -v 'type rootfs' | awk "/ on ${esc} / { print \$1 }" | sed 's/[0-9]*$//' | cut -d/ -f3)
         if [ "$(echo $dev | cut -c1-2)" = sd ]; then
             if [ `which kudzu 2>/dev/null` ]; then
                 host=$(kudzu --probe -b scsi |
@@ -1919,10 +1919,10 @@ if [ -z "$USING_METHOD" ]
 then
     mkdir -p $SAVE_PATH
     mntpoint=`df $SAVE_PATH | tail -1 | awk '{ print $NF }'`
-    DUMP_TARGET=`mount | awk '$3 == "'$mntpoint'" { print $1 }'`
+    DUMP_TARGET=`mount | grep -v 'type rootfs' | awk '$3 == "'$mntpoint'" { print $1 }'`
     DUMP_UUID=$(blkid -s UUID $DUMP_TARGET|cut -d ' ' -f2|tr -d '\042')
     [[ "$DUMP_UUID" =~ "UUID=" ]] && DUMP_TARGET="$DUMP_UUID"
-    DUMP_FSTYPE=`mount | awk '$3 == "'$mntpoint'" { print $5 }'`
+    DUMP_FSTYPE=`mount | grep -v 'type rootfs' | awk '$3 == "'$mntpoint'" { print $5 }'`
     handlelvordev $DUMP_TARGET 0
     if [ "$mntpoint" != "/" ]
     then
