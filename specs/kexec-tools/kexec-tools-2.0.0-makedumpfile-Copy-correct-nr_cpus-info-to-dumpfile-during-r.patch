@@ -1,0 +1,26 @@
+commit c4f1c98a9827c1c0e41772c1954940fbf1b48048
+Author: Mahesh Salgaonkar <mahesh@linux.vnet.ibm.com>
+Date:   Fri Mar 11 14:03:10 2011 +0900
+
+    [PATCH] Copy correct nr_cpus info to dumpfile during re-filtering.
+    
+    During re-filtering nr_cpus is to 0 in the o/p dumpfile and hence crash
+    utility fails to open the re-filtered dumpfile.
+    
+    This patch fixes this issue by copying nr_cpus info from kdump-compressed
+    dumpfile to info->nr_cpus which then get's correctly copied to o/p
+    dumpfile.
+    
+    Signed-off-by: Mahesh Salgaonkar <mahesh@linux.vnet.ibm.com>
+
+diff -Nrup kexec-tools-2.0.0.orig/makedumpfile-1.3.5/makedumpfile.c kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.c
+--- kexec-tools-2.0.0.orig/makedumpfile-1.3.5/makedumpfile.c	2012-01-02 16:36:13.000000000 +0800
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.c	2012-01-02 16:39:11.000000000 +0800
+@@ -897,6 +897,7 @@ get_kdump_compressed_header_info(char *f
+ 		goto error;
+ 	}
+ 	memcpy(info->kh_memory, &kh, sizeof(kh));
++	info->nr_cpus = dh.nr_cpus;
+ 
+ 	if (dh.header_version >= 3) {
+ 		/* A dumpfile contains vmcoreinfo data. */

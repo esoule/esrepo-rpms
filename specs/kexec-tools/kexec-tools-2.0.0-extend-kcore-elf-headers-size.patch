@@ -1,0 +1,35 @@
+diff -Nrup kexec-tools-2.0.0.orig/kexec/crashdump.h kexec-tools-2.0.0/kexec/crashdump.h
+--- kexec-tools-2.0.0.orig/kexec/crashdump.h	2010-11-03 14:10:58.000000000 +0800
++++ kexec-tools-2.0.0/kexec/crashdump.h	2010-11-03 14:12:06.000000000 +0800
+@@ -7,8 +7,8 @@ extern int get_xen_vmcoreinfo(uint64_t *
+ 
+ /* Need to find a better way to determine per cpu notes section size. */
+ #define MAX_NOTE_BYTES		1024
+-/* Expecting ELF headers to fit in 4K. Increase it if you need more. */
+-#define KCORE_ELF_HEADERS_SIZE  4096
++/* Expecting ELF headers to fit in 16K. Increase it if you need more. */
++#define KCORE_ELF_HEADERS_SIZE  16384
+ /* The address of the ELF header is passed to the secondary kernel
+  * using the kernel command line option memmap=nnn.
+  * The smallest unit the kernel accepts is in kilobytes,
+diff -Nrup kexec-tools-2.0.0.orig/kexec/kexec-elf.c kexec-tools-2.0.0/kexec/kexec-elf.c
+--- kexec-tools-2.0.0.orig/kexec/kexec-elf.c	2010-11-03 14:10:58.000000000 +0800
++++ kexec-tools-2.0.0/kexec/kexec-elf.c	2010-11-03 14:19:18.000000000 +0800
+@@ -8,6 +8,7 @@
+ #include <boot/elf_boot.h>
+ #include "kexec.h"
+ #include "kexec-elf.h"
++#include "crashdump.h"
+ 
+ static const int probe_debug = 0;
+ 
+@@ -392,6 +393,9 @@ static int build_mem_phdrs(const char *b
+ 	phdr_size *= ehdr->e_phnum;
+ 	if (ehdr->e_phoff + phdr_size > len) {
+ 		/* The program header did not fit in the file buffer */
++		fprintf(stderr, "%d segments require a %ld-byte buffer\n",
++			ehdr->e_phnum, ehdr->e_phoff + phdr_size);
++		fprintf(stderr, "KCORE_ELF_HEADERS_SIZE %d too small\n", KCORE_ELF_HEADERS_SIZE);
+ 		if (probe_debug) {
+ 			fprintf(stderr, "ELF program segment truncated\n");
+ 		}

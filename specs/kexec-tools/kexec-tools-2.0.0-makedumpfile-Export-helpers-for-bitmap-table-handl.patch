@@ -1,0 +1,88 @@
+Subject: [PATCH 05/18] Export helpers for bitmap table handling
+
+This is a backport of
+
+    commit eda60667712964081678dceedf650128e3d30c83
+    Author: HATAYAMA Daisuke <d.hatayama@jp.fujitsu.com>
+    Date:   Fri Dec 16 10:44:26 2011 +0900
+    
+    [PATCH v2 05/14] Export helpers for bitmap table handling
+    
+    sadump-related formats and kdump-compressed format is similar in
+    structure. In particular, both have exactly the same in bitmap. So
+    reuse two helper functions, is_on() and is_dumpable(), in sadump
+    module.
+    
+    Signed-off-by: HATAYAMA Daisuke <d.hatayama@jp.fujitsu.com>
+---
+diff -Nrup kexec-tools-2.0.0.old/makedumpfile-1.3.5/makedumpfile.c kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.c
+--- kexec-tools-2.0.0.old/makedumpfile-1.3.5/makedumpfile.c	2012-04-04 04:42:03.966528819 -0400
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.c	2012-04-04 04:54:52.067412921 -0400
+@@ -4503,28 +4503,6 @@ clear_bit_on_2nd_bitmap_for_kernel(unsig
+ }
+ 
+ static inline int
+-is_on(char *bitmap, int i)
+-{
+-	return bitmap[i>>3] & (1 << (i & 7));
+-}
+-
+-static inline int
+-is_dumpable(struct dump_bitmap *bitmap, unsigned long long pfn)
+-{
+-	off_t offset;
+-	if (pfn == 0 || bitmap->no_block != pfn/PFN_BUFBITMAP) {
+-		offset = bitmap->offset + BUFSIZE_BITMAP*(pfn/PFN_BUFBITMAP);
+-		lseek(bitmap->fd, offset, SEEK_SET);
+-		read(bitmap->fd, bitmap->buf, BUFSIZE_BITMAP);
+-		if (pfn == 0)
+-			bitmap->no_block = 0;
+-		else
+-			bitmap->no_block = pfn/PFN_BUFBITMAP;
+-	}
+-	return is_on(bitmap->buf, pfn%PFN_BUFBITMAP);
+-}
+-
+-static inline int
+ is_in_segs(unsigned long long paddr)
+ {
+ 	if (info->flag_refiltering) {
+diff -Nrup kexec-tools-2.0.0.old/makedumpfile-1.3.5/makedumpfile.h kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.h
+--- kexec-tools-2.0.0.old/makedumpfile-1.3.5/makedumpfile.h	2012-04-04 04:42:03.965528817 -0400
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.h	2012-04-04 04:54:52.068508786 -0400
+@@ -57,6 +57,8 @@ enum {
+ 	FLATMEM
+ };
+ 
++int get_mem_type(void);
++
+ /*
+  * Page flags
+  *
+@@ -1487,4 +1489,26 @@ int get_xen_info_ia64(void);
+ #define get_xen_info_arch(X) FALSE
+ #endif	/* s390x */
+ 
++static inline int
++is_on(char *bitmap, int i)
++{
++	return bitmap[i>>3] & (1 << (i & 7));
++}
++
++static inline int
++is_dumpable(struct dump_bitmap *bitmap, unsigned long long pfn)
++{
++	off_t offset;
++	if (pfn == 0 || bitmap->no_block != pfn/PFN_BUFBITMAP) {
++		offset = bitmap->offset + BUFSIZE_BITMAP*(pfn/PFN_BUFBITMAP);
++		lseek(bitmap->fd, offset, SEEK_SET);
++		read(bitmap->fd, bitmap->buf, BUFSIZE_BITMAP);
++		if (pfn == 0)
++			bitmap->no_block = 0;
++		else
++			bitmap->no_block = pfn/PFN_BUFBITMAP;
++	}
++	return is_on(bitmap->buf, pfn%PFN_BUFBITMAP);
++}
++
+ #endif /* MAKEDUMPFILE_H */

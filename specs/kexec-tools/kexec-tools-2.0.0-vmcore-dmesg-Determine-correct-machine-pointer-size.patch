@@ -1,0 +1,65 @@
+This patch is upstream now in Simon Horman's tree.
+
+A 32bit arch can prepare ELF64 headers. For example for PAE case to
+preresent file offsets 64bit but data size at the offset still remains
+32bit. If we just base our decision based on EI_CLASS, then we will try
+to read 64bit data from file and can run into various issues.
+
+We ran into following issue when we tried to run vmcore-dmesg on a 32bit
+PAE system vmcore which had 64bit elf headers.
+
+No program header covering vaddr 0xc0a6a688c0b89100found kexec bug?
+
+Basically we try to read value of log_buf variable from address
+log_buf_vaddr. We read in 64bit value and then pass that value again
+to vaddr_to_offset() in an attempt to get to actual log_buf start
+and get error message.
+
+So determine the data size based on arch and read the bytes from
+file accordingly.
+
+Signed-off-by: Vivek Goyal <vgoyal@redhat.com>
+---
+ vmcore-dmesg/vmcore-dmesg.c |   21 ++++++++++++++++++++-
+ 1 file changed, 20 insertions(+), 1 deletion(-)
+
+Index: kexec-tools-2.0.0/vmcore-dmesg/vmcore-dmesg.c
+===================================================================
+--- kexec-tools-2.0.0.orig/vmcore-dmesg/vmcore-dmesg.c	2012-11-13 11:32:47.929491747 -0500
++++ kexec-tools-2.0.0/vmcore-dmesg/vmcore-dmesg.c	2012-11-13 11:32:50.134511269 -0500
+@@ -89,6 +89,24 @@ static uint64_t vaddr_to_offset(uint64_t
+ 	exit(30);
+ }
+ 
++static unsigned machine_pointer_bits(void)
++{
++	uint8_t bits = 0;
++
++	/* Default to the size of the elf class */
++	switch(ehdr.e_ident[EI_CLASS]) {
++	case ELFCLASS32:        bits = 32; break;
++	case ELFCLASS64:        bits = 64; break;
++	}
++
++	/* Report the architectures pointer size */
++	switch(ehdr.e_machine) {
++	case EM_386:            bits = 32; break;
++	}
++
++        return bits;
++}
++
+ static void read_elf32(int fd)
+ {
+ 	Elf32_Ehdr ehdr32;
+@@ -389,7 +407,8 @@ static uint64_t read_file_pointer(int fd
+ {
+ 	uint64_t result;
+ 	ssize_t ret;
+-	if (ehdr.e_ident[EI_CLASS] == ELFCLASS64) {
++
++	if (machine_pointer_bits() == 64) {
+ 		uint64_t scratch;
+ 		ret = pread(fd, &scratch, sizeof(scratch), addr);
+ 		if (ret != sizeof(scratch)) {
+

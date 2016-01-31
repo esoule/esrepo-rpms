@@ -1,0 +1,12 @@
+diff -rup kexec-tools-2.0.0.orig/kexec/arch/ppc64/fs2dt.c kexec-tools-2.0.0/kexec/arch/ppc64/fs2dt.c
+--- kexec-tools-2.0.0.orig/kexec/arch/ppc64/fs2dt.c	2010-11-17 17:15:19.000000000 +0800
++++ kexec-tools-2.0.0/kexec/arch/ppc64/fs2dt.c	2010-11-17 17:17:11.000000000 +0800
+@@ -35,7 +35,7 @@
+ 
+ #define MAXPATH 1024		/* max path name length */
+ #define NAMESPACE 16384		/* max bytes for property names */
+-#define TREEWORDS 65536		/* max 32 bit words for property values */
++#define TREEWORDS 131070	/* max 32 bit words for property values */
+ #define MEMRESERVE 256		/* max number of reserved memory blocks */
+ #define MAX_MEMORY_RANGES 1024
+ 

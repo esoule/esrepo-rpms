@@ -1,0 +1,50 @@
+From 6b4ca6d55ca3c7a2fd5e6586274dab44e0ab24fb Mon Sep 17 00:00:00 2001
+From: Olaf Hering <olaf@aepfle.de>
+Date: Wed, 4 May 2011 18:32:32 +0200
+Subject: [PATCH] detect Xen dom0 properly to avoid conflict with pv_on_hvm domU
+
+A Xen HVM guest with PV drivers loaded has also a /proc/xen directory.
+But such a guest is an ordinary PC and the special handling for dom0
+breaks kdump in this environment.
+Test for /proc/xen/capabilities instead and cache the result.
+
+Also make two variables static, they are only used in this file.
+
+Signed-off-by: Olaf Hering <olaf@aepfle.de>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ kexec/crashdump-xen.c |   15 ++++++++++-----
+ 1 files changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/kexec/crashdump-xen.c b/kexec/crashdump-xen.c
+index 23d6b1f..44e5dfc 100644
+--- a/kexec/crashdump-xen.c
++++ b/kexec/crashdump-xen.c
+@@ -25,14 +25,19 @@ struct crash_note_info {
+ 	unsigned long length;
+ };
+ 
+-int xen_phys_cpus = 0;
+-struct crash_note_info *xen_phys_notes;
++static int xen_phys_cpus;
++static struct crash_note_info *xen_phys_notes;
++static int is_dom0;
+ 
+ int xen_present(void)
+ {
+-	struct stat buf;
+-
+-	return stat("/proc/xen", &buf) == 0;
++	if (!is_dom0) {
++		if (access("/proc/xen/capabilities", F_OK) == 0)
++			is_dom0 = 1;
++		else
++			is_dom0 = -1;
++	}
++	return is_dom0 > 0;
+ }
+ 
+ unsigned long xen_architecture(struct crash_elf_info *elf_info)
+-- 
+1.7.1
+

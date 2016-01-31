@@ -1,0 +1,23 @@
+This patch is partly included in below upstream commit:
+commit 8c69b49c890169c7f68178cb70d1a387077dbda3
+Author: HATAYAMA Daisuke <d.hatayama@jp.fujitsu.com>
+Date:   Wed Jul 4 15:54:47 2012 +0900
+
+    [PATCH 2/9] Add command-line processing for snappy.
+
+    Signed-off-by: HATAYAMA Daisuke <d.hatayama@jp.fujitsu.com>
+
+
+diff -rup kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.c kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.c
+--- kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.c	2011-03-01 19:34:23.000000000 +0800
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.c	2011-03-01 19:34:40.000000000 +0800
+@@ -7707,7 +7707,7 @@ main(int argc, char *argv[])
+ 
+ 	info->block_order = DEFAULT_ORDER;
+ 	message_level = DEFAULT_MSG_LEVEL;
+-	while ((opt = getopt_long(argc, argv, "b:cDd:EFfg:hi:MRrsVvXx:", longopts,
++	while ((opt = getopt_long(argc, argv, "b:cDd:EFfg:hi:MRrsvXx:", longopts,
+ 	    NULL)) != -1) {
+ 		switch (opt) {
+ 		case 'b':
+Only in makedumpfile-1.3.5: makedumpfile.c.orig

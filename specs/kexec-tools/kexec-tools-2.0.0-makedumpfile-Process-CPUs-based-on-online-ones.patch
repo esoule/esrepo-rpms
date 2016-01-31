@@ -1,0 +1,294 @@
+Subject: [PATCH 11/18] Process CPUs based on online ones
+
+This is a backport of
+
+    commit 13dd70a20630d071a27df5bd78c3382db056f1cd
+    Author: HATAYAMA Daisuke <d.hatayama@jp.fujitsu.com>
+    Date:   Fri Dec 16 10:57:39 2011 +0900
+    
+    [PATCH v2 11/14] Process CPUs based on online ones
+    
+    Assign the number of online cpus to nr_cpus member in diskset header,
+    and create NR_PRSTATUS for each online cpu. This behaviour is sound
+    with respect to kdump's and crash's on kdump-compressed format.
+    
+    Signed-off-by: HATAYAMA Daisuke <d.hatayama@jp.fujitsu.com>
+---
+diff -Nrup kexec-tools-2.0.0.old/makedumpfile-1.3.5/makedumpfile.c kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.c
+--- kexec-tools-2.0.0.old/makedumpfile-1.3.5/makedumpfile.c	2012-04-05 06:57:32.393403836 -0400
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.c	2012-04-05 07:07:34.462439212 -0400
+@@ -2565,6 +2565,9 @@ get_symbol_info(void)
+ 	SYMBOL_INIT(crash_notes, "crash_notes");
+ 	SYMBOL_INIT(__per_cpu_load, "__per_cpu_load");
+ 	SYMBOL_INIT(__per_cpu_offset, "__per_cpu_offset");
++	SYMBOL_INIT(cpu_online_mask, "cpu_online_mask");
++	if (SYMBOL(cpu_online_mask) == NOT_FOUND_SYMBOL)
++		SYMBOL_INIT(cpu_online_mask, "cpu_online_map");
+ 
+ 	if (SYMBOL(node_data) != NOT_FOUND_SYMBOL)
+ 		SYMBOL_ARRAY_TYPE_INIT(node_data, "node_data");
+@@ -2701,6 +2704,13 @@ get_structure_info(void)
+ 	OFFSET_INIT(elf_prstatus.pr_reg, "elf_prstatus", "pr_reg");
+ 
+ 	/*
++	 * Get size of cpumask and cpumask_t.
++	 */
++	SIZE_INIT(cpumask, "cpumask");
++
++	TYPEDEF_SIZE_INIT(cpumask_t, "cpumask_t");
++
++	/*
+ 	 * Get offset of the user_regs_struct members.
+ 	 */
+ 	SIZE_INIT(user_regs_struct, "user_regs_struct");
+@@ -4448,8 +4458,6 @@ initial(void)
+ 			return FALSE;
+ 
+ 	} else if (info->flag_sadump) {
+-		int nr_cpus;
+-
+ 		if (info->flag_elf_dumpfile) {
+ 			MSG("'-E' option is disable, ");
+ 			MSG("because %s is sadump %s format.\n",
+@@ -4462,11 +4470,6 @@ initial(void)
+ 		if (!sadump_initialize_bitmap_memory())
+ 			return FALSE;
+ 
+-		if (!sadump_get_nr_cpus(&nr_cpus))
+-			return FALSE;
+-
+-		info->nr_cpus = nr_cpus;
+-
+ 		(void) sadump_set_timestamp(&info->timestamp);
+ 
+ 		/*
+@@ -4559,6 +4562,16 @@ out:
+ 		if (!get_machdep_info())
+ 			return FALSE;
+ 
++		if (info->flag_sadump) {
++			int online_cpus;
++
++			online_cpus = sadump_num_online_cpus();
++			if (!online_cpus)
++				return FALSE;
++
++			info->nr_cpus = online_cpus;
++		}
++
+ 		if (!check_release())
+ 			return FALSE;
+ 
+diff -Nrup kexec-tools-2.0.0.old/makedumpfile-1.3.5/makedumpfile.h kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.h
+--- kexec-tools-2.0.0.old/makedumpfile-1.3.5/makedumpfile.h	2012-04-05 06:57:32.392403962 -0400
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.h	2012-04-05 07:00:22.369564290 -0400
+@@ -1099,6 +1099,7 @@ struct symbol_table {
+ 	unsigned long long	crash_notes;
+ 	unsigned long long	__per_cpu_offset;
+ 	unsigned long long	__per_cpu_load;
++	unsigned long long	cpu_online_mask;
+ };
+ 
+ struct size_table {
+@@ -1128,6 +1129,8 @@ struct size_table {
+ 	long	percpu_data;
+ 	long	elf_prstatus;
+ 	long	user_regs_struct;
++	long	cpumask;
++	long	cpumask_t;
+ };
+ 
+ struct offset_table {
+diff -Nrup kexec-tools-2.0.0.old/makedumpfile-1.3.5/sadump_info.c kexec-tools-2.0.0/makedumpfile-1.3.5/sadump_info.c
+--- kexec-tools-2.0.0.old/makedumpfile-1.3.5/sadump_info.c	2012-04-05 06:57:32.392403962 -0400
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/sadump_info.c	2012-04-05 07:06:01.291463868 -0400
+@@ -43,6 +43,14 @@
+ 			  KEXEC_CORE_NOTE_NAME_BYTES +                 \
+ 			  KEXEC_CORE_NOTE_DESC_BYTES )
+ 
++#define for_each_online_cpu(cpu)					\
++	for (cpu = 0; cpu < BITPERBYTE * si->cpumask_size; ++cpu)	\
++		if (is_online_cpu(cpu))
++
++enum {
++	BITPERWORD = BITPERBYTE * sizeof(unsigned long)
++};
++
+ struct sadump_diskset_info {
+ 	char *name_memory;
+ 	int fd_memory;
+@@ -64,7 +72,8 @@ struct sadump_info {
+ 	unsigned long *__per_cpu_offset;
+ 	unsigned long __per_cpu_load;
+ 	FILE *file_elf_note;
+-
++	char *cpu_online_mask_buf;
++	size_t cpumask_size;
+ };
+ 
+ static char *guid_to_str(efi_guid_t *guid, char *buf, size_t buflen);
+@@ -78,6 +87,7 @@ static int read_sadump_header_diskset(in
+ static unsigned long long pfn_to_block(unsigned long long pfn);
+ static int lookup_diskset(unsigned long long whole_offset, int *diskid,
+ 			  unsigned long long *disk_offset);
++static int cpu_online_mask_init(void);
+ static int per_cpu_init(void);
+ static int get_data_from_elf_note_desc(const char *note_buf, uint32_t n_descsz,
+ 				       char *name, uint32_t n_type, char **data);
+@@ -85,6 +95,7 @@ static int alignfile(unsigned long *offs
+ static int
+ write_elf_note_header(char *name, void *data, size_t descsz, uint32_t type,
+ 		      unsigned long *offset, unsigned long *desc_offset);
++static int is_online_cpu(int cpu);
+ static unsigned long legacy_per_cpu_ptr(unsigned long ptr, int cpu);
+ static unsigned long per_cpu_ptr(unsigned long ptr, int cpu);
+ static int get_prstatus_from_crash_notes(int cpu, char *prstatus_buf);
+@@ -247,8 +258,10 @@ sadump_generate_elf_note_from_dumpfile(v
+ 		       strerror(errno));
+ 		goto cleanup;
+ 	}
++	if (!cpu_online_mask_init())
++		goto cleanup;
+ 	offset = 0;
+-	for (x_cpu = 0; x_cpu < info->nr_cpus; ++x_cpu) {
++	for_each_online_cpu(x_cpu) {
+ 		struct elf_prstatus prstatus;
+ 
+ 		memset(&prstatus, 0, sizeof(prstatus));
+@@ -755,35 +768,71 @@ sadump_initialize_bitmap_memory(void)
+ 	return TRUE;
+ }
+ 
+-int
+-sadump_get_nr_cpus(int *nr_cpus)
++static int
++cpu_online_mask_init(void)
+ {
+-	unsigned long offset;
+-	struct sadump_smram_cpu_state scs, zero;
+-	uint32_t x_cpu;
+-	int count;
++	ulong cpu_online_mask_addr;
+ 
+-	memset(&zero, 0, sizeof(zero));
++	if (si->cpu_online_mask_buf && si->cpumask_size)
++		return TRUE;
+ 
+-	offset = si->sub_hdr_offset + sizeof(uint32_t) +
+-		si->sh_memory->nr_cpus * sizeof(struct sadump_apic_state);
++	if (SYMBOL(cpu_online_mask) == NOT_FOUND_SYMBOL ||
++	    (SIZE(cpumask) == NOT_FOUND_STRUCTURE &&
++	     SIZE(cpumask_t) == NOT_FOUND_STRUCTURE))
++		return FALSE;
+ 
+-	count = 0;
+-	for (x_cpu = 0; x_cpu < si->sh_memory->nr_cpus; ++x_cpu) {
+-		if (!read_device(&scs, sizeof(scs), &offset))
+-			return FALSE;
+-		if (memcmp(&scs, &zero, sizeof(scs)) != 0)
+-			count++;
++	si->cpumask_size = SIZE(cpumask) == NOT_FOUND_STRUCTURE
++		? SIZE(cpumask_t)
++		: SIZE(cpumask);
++
++	if (!(si->cpu_online_mask_buf = calloc(1, si->cpumask_size))) {
++		ERRMSG("Can't allocate cpu_online_mask buffer. %s\n",
++		       strerror(errno));
++		return FALSE;
+ 	}
+ 
+-	*nr_cpus = count;
++	if (SIZE(cpumask) == NOT_FOUND_STRUCTURE)
++		cpu_online_mask_addr = SYMBOL(cpu_online_mask);
++
++	else {
++		if (!readmem(VADDR, SYMBOL(cpu_online_mask),
++			     &cpu_online_mask_addr, sizeof(unsigned long))) {
++			ERRMSG("Can't read cpu_online_mask pointer.\n");
++			return FALSE;
++		}
++
++	}
+ 
+-	DEBUG_MSG("sadump: nr_cpus: %d\n", *nr_cpus);
++	if (!readmem(VADDR, cpu_online_mask_addr, si->cpu_online_mask_buf,
++		     si->cpumask_size)) {
++		ERRMSG("Can't read cpu_online_mask memory.\n");
++		return FALSE;
++	}
+ 
+ 	return TRUE;
+ }
+ 
+ int
++sadump_num_online_cpus(void)
++{
++	int cpu, count = 0;
++
++	if (!cpu_online_mask_init())
++		return FALSE;
++
++	DEBUG_MSG("sadump: online cpus:");
++
++	for_each_online_cpu(cpu) {
++		count++;
++		DEBUG_MSG(" %d", cpu);
++	}
++
++	DEBUG_MSG("\nsadump: nr_cpus: %d\n", count);
++
++	return count;
++}
++
++int
+ sadump_set_timestamp(struct timeval *ts)
+ {
+ 	static struct tm t;
+@@ -1200,6 +1249,17 @@ write_elf_note_header(char *name, void *
+ 	return TRUE;
+ }
+ 
++static int
++is_online_cpu(int cpu)
++{
++	unsigned long mask;
++
++	mask = ULONG(si->cpu_online_mask_buf +
++		     (cpu / BITPERWORD) * sizeof(unsigned long));
++
++	return (mask & (1UL << (cpu % BITPERWORD))) ? TRUE : FALSE;
++}
++
+ static unsigned long
+ legacy_per_cpu_ptr(unsigned long ptr, int cpu)
+ {
+@@ -1709,6 +1769,8 @@ free_sadump_info(void)
+ 		free(si->block_table);
+ 	if (si->file_elf_note)
+ 		fclose(si->file_elf_note);
++	if (si->cpu_online_mask_buf)
++		free(si->cpu_online_mask_buf);
+ }
+ 
+ #endif /* defined(__x86__) && defined(__x86_64__) */
+diff -Nrup kexec-tools-2.0.0.old/makedumpfile-1.3.5/sadump_info.h kexec-tools-2.0.0/makedumpfile-1.3.5/sadump_info.h
+--- kexec-tools-2.0.0.old/makedumpfile-1.3.5/sadump_info.h	2012-04-05 06:57:32.392403962 -0400
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/sadump_info.h	2012-04-05 07:00:22.371563721 -0400
+@@ -40,7 +40,7 @@ static inline int sadump_virt_phys_base(
+ int check_and_get_sadump_header_info(char *filename);
+ int sadump_copy_1st_bitmap_from_memory(void);
+ int sadump_initialize_bitmap_memory(void);
+-int sadump_get_nr_cpus(int *nr_cpus);
++int sadump_num_online_cpus(void);
+ int sadump_set_timestamp(struct timeval *ts);
+ unsigned long long sadump_get_max_mapnr(void);
+ int readpmem_sadump(unsigned long long paddr, void *bufptr, size_t size);
+@@ -81,7 +81,7 @@ static inline int sadump_initialize_bitm
+ 	return FALSE;
+ }
+ 
+-static inline int sadump_get_nr_cpus(int *nr_cpus)
++static inline int sadump_num_online_cpus(void);
+ {
+ 	return 0;
+ }

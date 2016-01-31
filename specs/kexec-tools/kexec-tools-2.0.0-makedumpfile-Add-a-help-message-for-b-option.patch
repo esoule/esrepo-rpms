@@ -1,0 +1,38 @@
+From dd59013358bd5e31bf9af62816389601d747683c Mon Sep 17 00:00:00 2001
+Message-Id: <dd59013358bd5e31bf9af62816389601d747683c.1372843415.git.bhe@redhat.com>
+From: Jingbai Ma <jingbai.ma@hp.com>
+Date: Tue, 4 Jun 2013 16:46:33 +0900
+Subject: [PATCH] [PATCH] Add a help message into man page of makedumpfile for -b option.
+
+This is a minor change that only adds a help message to -b option in
+makedumpfile man page. This message has been in Red Hat's makedumpfile
+source, they would like it in upstream also.
+
+Signed-off-by: Jingbai Ma <jingbai.ma@hp.com>
+
+Fix the content of message.
+
+Signed-off-by: Atsushi Kumagai <kumagai-atsushi@mxc.nes.nec.co.jp>
+---
+ makedumpfile.8 |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/makedumpfile-1.3.5/makedumpfile.8 b/makedumpfile-1.3.5/makedumpfile.8
+index cfd1270..61bd5f2 100644
+--- a/makedumpfile-1.3.5/makedumpfile.8
++++ b/makedumpfile-1.3.5/makedumpfile.8
+@@ -364,6 +364,11 @@ on the following example.
+ # makedumpfile \-\-reassemble dumpfile1 dumpfile2 dumpfile
+ 
+ .TP
++\fB\-b\fR \fI<order>\fR
++Cache 2^order pages in ram when generating \fIDUMPFILE\fR before writing to output.
++The default value is 4.
++
++.TP
+ \fB\-\-cyclic\-buffer\fR \fIbuffer_size\fR
+ Specify the buffer size in kilo bytes for analysis in the cyclic mode.
+ Actually, the double of \fIbuffer_size\fR kilo bytes will be allocated in memory.
+-- 
+1.7.1
+

@@ -1,0 +1,132 @@
+Subject: [PATCH 09/18] Estimate phys_base based on linux_banner position
+
+This is a backport of
+
+    commit 5054dd829ea155b6147b693c498439c018925618
+    Author: HATAYAMA Daisuke <d.hatayama@jp.fujitsu.com>
+    Date:   Fri Dec 16 10:52:59 2011 +0900
+    
+    [PATCH v2 09/14] Estimate phys_base based on linux_banner position
+    
+    sadump doesn't save phys_base, so we must estimate it in any way. Here
+    we borrow the method in crash utility that we search a certain range
+    of addresses for linux_banner symbol value.
+    
+    Signed-off-by: HATAYAMA Daisuke <d.hatayama@jp.fujitsu.com>
+---
+diff -Nrup kexec-tools-2.0.0.old/makedumpfile-1.3.5/makedumpfile.c kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.c
+--- kexec-tools-2.0.0.old/makedumpfile-1.3.5/makedumpfile.c	2012-04-05 04:16:01.284497737 -0400
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.c	2012-04-05 04:21:56.697586034 -0400
+@@ -4463,6 +4463,15 @@ initial(void)
+ 
+ 		(void) sadump_set_timestamp(&info->timestamp);
+ 
++		/*
++		 * NOTE: phys_base is never saved by sadump and so
++		 * must be computed in some way. We here choose the
++		 * way of looking at linux_banner. See
++		 * sadump_virt_phys_base(). The processing is
++		 * postponed until debug information becomes
++		 * available.
++		 */
++
+ 	} else if (!get_phys_base())
+ 		return FALSE;
+ 
+@@ -4538,6 +4547,9 @@ out:
+ 		return FALSE;
+ 
+ 	if (debug_info) {
++		if (info->flag_sadump)
++			(void) sadump_virt_phys_base();
++
+ 		if (!get_machdep_info())
+ 			return FALSE;
+ 
+diff -Nrup kexec-tools-2.0.0.old/makedumpfile-1.3.5/sadump_info.c kexec-tools-2.0.0/makedumpfile-1.3.5/sadump_info.c
+--- kexec-tools-2.0.0.old/makedumpfile-1.3.5/sadump_info.c	2012-04-05 04:16:01.284497737 -0400
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/sadump_info.c	2012-04-05 04:21:56.697586034 -0400
+@@ -21,6 +21,12 @@
+ #include "makedumpfile.h"
+ #include "sadump_mod.h"
+ 
++#ifdef __x86_64__
++
++#define MEGABYTES(x)	((x) * (1048576))
++
++#endif
++
+ struct sadump_diskset_info {
+ 	char *name_memory;
+ 	int fd_memory;
+@@ -665,6 +671,47 @@ sadump_get_max_mapnr(void)
+ 	return si->sh_memory->max_mapnr;
+ }
+ 
++#ifdef __x86_64__
++
++int
++sadump_virt_phys_base(void)
++{
++        char buf[BUFSIZE];
++        unsigned long phys, linux_banner_phys;
++
++	if (SYMBOL(linux_banner) == NOT_FOUND_SYMBOL) {
++		DEBUG_MSG("sadump: symbol linux_banner is not found\n");
++		goto failed;
++	}
++
++        linux_banner_phys = SYMBOL(linux_banner) - __START_KERNEL_map;
++
++        if (readmem(PADDR, linux_banner_phys + info->phys_base, buf,
++		    strlen("Linux version")) && STRNEQ(buf, "Linux version"))
++                return TRUE;
++
++        for (phys = (-MEGABYTES(16)); phys != MEGABYTES(16+1);
++             phys += MEGABYTES(1)) {
++                if (readmem(PADDR, linux_banner_phys + phys, buf,
++			    strlen("Linux version")) &&
++		    STRNEQ(buf, "Linux version")) {
++                        DEBUG_MSG("sadump: phys_base: %lx %s\n", phys,
++				  info->phys_base != phys ? "override" : "");
++                        info->phys_base = phys;
++                        return TRUE;
++                }
++        }
++
++failed:
++	info->phys_base = 0;
++
++	DEBUG_MSG("sadump: failed to calculate phys_base; default to 0\n");
++
++        return FALSE;
++}
++
++#endif /* __x86_64__ */
++
+ int
+ readpmem_sadump(unsigned long long paddr, void *bufptr, size_t size)
+ {
+diff -Nrup kexec-tools-2.0.0.old/makedumpfile-1.3.5/sadump_info.h kexec-tools-2.0.0/makedumpfile-1.3.5/sadump_info.h
+--- kexec-tools-2.0.0.old/makedumpfile-1.3.5/sadump_info.h	2012-04-05 04:16:01.283497660 -0400
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/sadump_info.h	2012-04-05 04:21:56.698508274 -0400
+@@ -22,6 +22,19 @@
+ 
+ #include "makedumpfile.h"
+ 
++#ifdef __x86_64__
++
++int sadump_virt_phys_base(void);
++
++#else
++
++static inline int sadump_virt_phys_base(void)
++{
++	return TRUE;
++}
++
++#endif
++
+ #if defined(__x86__) || defined(__x86_64__)
+ 
+ int check_and_get_sadump_header_info(char *filename);

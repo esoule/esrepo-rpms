@@ -1,0 +1,36 @@
+diff -Nrup kexec-tools-2.0.0.orig/kexec/arch/i386/crashdump-x86.c kexec-tools-2.0.0/kexec/arch/i386/crashdump-x86.c
+--- kexec-tools-2.0.0.orig/kexec/arch/i386/crashdump-x86.c	2011-03-31 16:56:29.000000000 +0800
++++ kexec-tools-2.0.0/kexec/arch/i386/crashdump-x86.c	2011-03-31 19:18:24.000000000 +0800
+@@ -591,10 +591,12 @@ int load_crashdump_segments(struct kexec
+ 	int nr_ranges, align = 1024;
+ 	struct memory_range *mem_range, *memmap_p;
+ 	int i;
+-	unsigned long tmp_backup_end;
+ 
+-        get_backup_area(&info->backup_src_start, &tmp_backup_end);
+-        info->backup_src_size =  tmp_backup_end - info->backup_src_start + 1;
++        get_backup_area(&info->backup_src_start, &elf_info64.backup_src_end);
++	elf_info64.backup_src_start = info->backup_src_start;
++	elf_info32.backup_src_start = elf_info64.backup_src_start;
++	elf_info32.backup_src_end = elf_info64.backup_src_end;
++        info->backup_src_size =  elf_info64.backup_src_end - info->backup_src_start + 1;
+ 
+ 	if (get_crash_memory_ranges(&mem_range, &nr_ranges) < 0)
+ 		return -1;
+diff -Nrup kexec-tools-2.0.0.orig/kexec/arch/x86_64/crashdump-x86_64.c kexec-tools-2.0.0/kexec/arch/x86_64/crashdump-x86_64.c
+--- kexec-tools-2.0.0.orig/kexec/arch/x86_64/crashdump-x86_64.c	2011-03-31 16:56:29.000000000 +0800
++++ kexec-tools-2.0.0/kexec/arch/x86_64/crashdump-x86_64.c	2011-03-31 19:25:09.000000000 +0800
+@@ -626,10 +626,10 @@ int load_crashdump_segments(struct kexec
+ 	unsigned long sz, bufsz, memsz, elfcorehdr;
+ 	int nr_ranges, align = 1024, i;
+ 	struct memory_range *mem_range, *memmap_p;
+-	unsigned long tmp_backup_end;
+ 
+-	get_backup_area(&info->backup_src_start, &tmp_backup_end);
+-	info->backup_src_size =  tmp_backup_end - info->backup_src_start + 1;
++	get_backup_area(&info->backup_src_start, &elf_info.backup_src_end);
++	elf_info.backup_src_start = info->backup_src_start;
++	info->backup_src_size =  elf_info.backup_src_end - info->backup_src_start + 1;
+ 
+ 	if (get_kernel_paddr(info))
+ 		return -1;

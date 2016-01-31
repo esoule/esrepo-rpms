@@ -1,0 +1,60 @@
+Subject: [PATCH 02/18] Extend DumpInfo structure
+
+This is a backport of
+
+    commit 9a068b50dc86dd0de072dd029a3de0850f309362
+    Author: HATAYAMA Daisuke <d.hatayama@jp.fujitsu.com>
+    Date:   Fri Dec 16 10:30:56 2011 +0900
+    
+    [PATCH v2 02/14] Extend DumpInfo structure
+    
+    Two members, flag_sadump_diskset and flag_sadump, are
+    introduced. flag_sadump_diskset is true if --diskset=VMCORE is
+    specified one or more times. flag_sadump has the corresponding value
+    of type enum sadump_format_type if VMCORE(s) is in sadump-related
+    formats.
+    
+    Signed-off-by: HATAYAMA Daisuke <d.hatayama@jp.fujitsu.com>
+---
+diff -Nrup kexec-tools-2.0.0.old/makedumpfile-1.3.5/makedumpfile.h kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.h
+--- kexec-tools-2.0.0.old/makedumpfile-1.3.5/makedumpfile.h	2012-04-04 02:58:04.657528933 -0400
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.h	2012-04-04 02:58:38.655538370 -0400
+@@ -33,6 +33,7 @@
+ #include <byteswap.h>
+ #include <getopt.h>
+ #include "diskdump_mod.h"
++#include "sadump_mod.h"
+ 
+ /*
+  * Result of command
+@@ -984,6 +985,12 @@ struct DumpInfo {
+ 	 */
+ 	unsigned long long split_start_pfn;  
+ 	unsigned long long split_end_pfn;  
++
++	/*
++	 * sadump info:
++	 */
++	int flag_sadump_diskset;
++	enum sadump_format_type flag_sadump;         /* sadump format type */
+ };
+ extern struct DumpInfo		*info;
+ 
+diff -Nrup kexec-tools-2.0.0.old/makedumpfile-1.3.5/sadump_mod.h kexec-tools-2.0.0/makedumpfile-1.3.5/sadump_mod.h
+--- kexec-tools-2.0.0.old/makedumpfile-1.3.5/sadump_mod.h	2012-04-04 02:58:04.657528933 -0400
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/sadump_mod.h	2012-04-04 02:58:38.655538370 -0400
+@@ -171,4 +171,14 @@ struct sadump_media_header {
+ 
+ #endif /* defined(__x86__) && defined(__x86_64__) */
+ 
++/*
++ * Type of sadump related formats
++ */
++enum sadump_format_type {
++	SADUMP_UNKNOWN = 0,
++	SADUMP_SINGLE_PARTITION,
++	SADUMP_DISKSET,
++	SADUMP_MEDIA_BACKUP
++};
++
+ #endif /* _SADUMP_MOD_H */

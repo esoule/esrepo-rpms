@@ -1,0 +1,39 @@
+Subject: [PATCH 13/18] Add description of sadump-related formats in usage information
+
+This is a backport of
+
+    commit d6259dedb9577b033d40c494afbc883dc5c3b0b9
+    Author: HATAYAMA Daisuke <d.hatayama@jp.fujitsu.com>
+    Date:   Fri Dec 16 11:01:26 2011 +0900
+    
+    [PATCH v2 13/14] Add description of sadump-related formats in usage information
+    
+    Signed-off-by: HATAYAMA Daisuke <d.hatayama@jp.fujitsu.com>
+---
+diff -Nrup kexec-tools-2.0.0.old/makedumpfile-1.3.5/makedumpfile.c kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.c
+--- kexec-tools-2.0.0.old/makedumpfile-1.3.5/makedumpfile.c	2012-04-05 07:15:59.461497620 -0400
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.c	2012-04-05 07:18:24.618563888 -0400
+@@ -655,6 +655,11 @@ print_usage(void)
+ 	MSG("  # makedumpfile -g VMCOREINFO --xen-syms XEN-SYMS\n");
+ 	MSG("\n");
+ 	MSG("\n");
++	MSG("  Creating DUMPFILE from multiple VMCOREs generated on sadump diskset configuration:\n");
++	MSG("  # makedumpfile [-c] [-d DL] -x VMLINUX --diskset=VMCORE1 --diskset=VMCORE2\n");
++	MSG("    [--diskset=VMCORE3 ..] DUMPFILE\n");
++	MSG("\n");
++	MSG("\n");
+ 	MSG("Available options:\n");
+ 	MSG("  [-c]:\n");
+ 	MSG("      Compress dump data by each page.\n");
+@@ -748,6 +753,11 @@ print_usage(void)
+ 	MSG("      Exclude all the user domain pages from Xen kdump's VMCORE, and extract\n");
+ 	MSG("      the part of Xen and domain-0.\n");
+ 	MSG("\n");
++	MSG("  [--diskset=VMCORE]:\n");
++	MSG("      Specify multiple VMCOREs created on sadump diskset configuration the same\n");
++	MSG("      number of times as the number of VMCOREs in increasing order from left to\n");
++	MSG("      right.\n");
++	MSG("\n");
+ 	MSG("  [--message-level ML]:\n");
+ 	MSG("      Specify the message types.\n");
+ 	MSG("      Users can restrict output printed by specifying Message_Level (ML) with\n");

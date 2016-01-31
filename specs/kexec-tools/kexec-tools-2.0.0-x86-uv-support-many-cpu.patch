@@ -1,0 +1,423 @@
+diff -Nrup kexec-tools-2.0.0.orig/include/x86/x86-linux.h kexec-tools-2.0.0/include/x86/x86-linux.h
+--- kexec-tools-2.0.0.orig/include/x86/x86-linux.h	2011-03-16 20:17:26.000000000 +0800
++++ kexec-tools-2.0.0/include/x86/x86-linux.h	2011-03-16 20:19:19.000000000 +0800
+@@ -194,7 +194,7 @@ struct x86_linux_param_header {
+ 	uint8_t _pad8[48];			/* 0xcd0 */
+ 	struct 	edd_info eddbuf[EDDMAXNR];	/* 0xd00 */
+ 						/* 0xeec */
+-#define COMMAND_LINE_SIZE 2048
++#define COMMAND_LINE_SIZE 8*1024
+ };
+ 
+ struct x86_linux_faked_param_header {
+diff -Nrup kexec-tools-2.0.0.orig/kexec/arch/i386/crashdump-x86.c kexec-tools-2.0.0/kexec/arch/i386/crashdump-x86.c
+--- kexec-tools-2.0.0.orig/kexec/arch/i386/crashdump-x86.c	2011-03-16 20:17:26.000000000 +0800
++++ kexec-tools-2.0.0/kexec/arch/i386/crashdump-x86.c	2011-03-16 21:09:56.000000000 +0800
+@@ -536,6 +536,49 @@ static enum coretype get_core_type(struc
+ 	}
+ }
+ 
++static void get_backup_area(unsigned long *start, unsigned long *end)
++{
++	const char *iomem = proc_iomem();
++	char line[MAX_LINE];
++	FILE *fp;
++
++	fp = fopen(iomem, "r");
++	if (!fp) {
++		fprintf(stderr, "Cannot open %s: %s\n",
++			iomem, strerror(errno));
++		return;
++	}
++
++	while(fgets(line, sizeof(line), fp) != 0) {
++		char *str;
++		int count, consumed;
++		unsigned long mstart, mend;
++
++		count = sscanf(line, "%lx-%lx : %n",
++			&mstart, &mend, &consumed);
++		if (count != 2)
++			continue;
++		str = line + consumed;
++#ifdef DEBUG
++		printf("%016lx-%016lx : %s",
++			mstart, mend, str);
++#endif
++		/* Hopefully there is only one RAM region in the first 640K */
++		if (memcmp(str, "System RAM\n", 11) == 0 && mend <= 0xa0000 ) {
++#ifdef DEBUG
++			printf("%s: %016lx-%016lx : %s", __func__, mstart, mend, str);
++#endif
++			*start = mstart;
++			*end = mend;
++			fclose(fp);
++			return;
++		}
++	}
++	*start = BACKUP_SRC_START;
++	*end = BACKUP_SRC_END;
++	fclose(fp);
++}
++
+ /* Loads additional segments in case of a panic kernel is being loaded.
+  * One segment for backup region, another segment for storing elf headers
+  * for crash memory image.
+@@ -548,6 +591,10 @@ int load_crashdump_segments(struct kexec
+ 	int nr_ranges, align = 1024;
+ 	struct memory_range *mem_range, *memmap_p;
+ 	int i;
++	unsigned long tmp_backup_end;
++
++        get_backup_area(&info->backup_src_start, &tmp_backup_end);
++        info->backup_src_size =  tmp_backup_end - info->backup_src_start + 1;
+ 
+ 	if (get_crash_memory_ranges(&mem_range, &nr_ranges) < 0)
+ 		return -1;
+@@ -565,7 +612,7 @@ int load_crashdump_segments(struct kexec
+ 	sz = (sizeof(struct memory_range) * (KEXEC_MAX_SEGMENTS + 1));
+ 	memmap_p = xmalloc(sz);
+ 	memset(memmap_p, 0, sz);
+-	add_memmap(memmap_p, BACKUP_SRC_START, BACKUP_SRC_SIZE, RANGE_RAM);
++	add_memmap(memmap_p, info->backup_src_start, info->backup_src_size, RANGE_RAM);
+ 	sz = crash_reserved_mem.end - crash_reserved_mem.start +1;
+ 	add_memmap(memmap_p, crash_reserved_mem.start, sz, RANGE_RAM);
+ 
+@@ -580,7 +627,7 @@ int load_crashdump_segments(struct kexec
+ 	}
+ 
+ 	/* Create a backup region segment to store backup data*/
+-	sz = (BACKUP_SRC_SIZE + align - 1) & ~(align - 1);
++	sz = (info->backup_src_size + align - 1) & ~(align - 1);
+ 	tmp = xmalloc(sz);
+ 	memset(tmp, 0, sz);
+ 	info->backup_start = add_buffer(info, tmp, sz, sz, align,
+diff -Nrup kexec-tools-2.0.0.orig/kexec/arch/i386/kexec-x86-common.c kexec-tools-2.0.0/kexec/arch/i386/kexec-x86-common.c
+--- kexec-tools-2.0.0.orig/kexec/arch/i386/kexec-x86-common.c	2011-03-16 20:17:26.000000000 +0800
++++ kexec-tools-2.0.0/kexec/arch/i386/kexec-x86-common.c	2011-03-16 20:18:29.000000000 +0800
+@@ -128,6 +128,78 @@ static int get_memory_ranges_sysfs(struc
+ 	return 0;
+ }
+ 
++static void remove_range(struct memory_range *range, int nr_ranges, int index)
++{
++	int i, j;
++
++	for (i = index; i < (nr_ranges-1); i++) {
++		j = i+1;
++		range[i] = range[j];
++	}
++}
++
++/**
++ * Verifies and corrects any overlapping ranges.
++ * The ranges array is assumed to be sorted already.
++ *
++ * @param[out] range pointer that will be set to an array that holds the
++ *             memory ranges
++ * @param[out] ranges number of ranges valid in @p range
++ *
++ * @return 0 on success, any other value on failure.
++ */
++static int fixup_memory_ranges_sysfs(struct memory_range **range, int *ranges)
++{
++	int i;
++	int j;
++	int change_made;
++	int nr_ranges = *ranges;
++	struct memory_range *rp = *range;
++
++again:
++	change_made = 0;
++	for (i = 0; i < (nr_ranges-1); i++) {
++		j = i+1;
++		if (rp[i].start > rp[j].start) {
++			fprintf(stderr, "sysfs memory out of order!!\n");
++			return 1;
++		}
++
++		if (rp[i].type != rp[j].type)
++			continue;
++
++		if (rp[i].start == rp[j].start) {
++			if (rp[i].end >= rp[j].end) {
++				remove_range(rp, nr_ranges, j);
++				nr_ranges--;
++				change_made++;
++			} else {
++				remove_range(rp, nr_ranges, i);
++				nr_ranges--;
++				change_made++;
++			}
++		} else {
++			if (rp[i].end > rp[j].start) {
++				if (rp[i].end < rp[j].end) {
++					rp[j].start = rp[i].end;
++					change_made++;
++				} else if (rp[i].end >= rp[j].end) {
++					remove_range(rp, nr_ranges, j);
++					nr_ranges--;
++					change_made++;
++				}
++			}
++		}
++	}
++
++	/* fixing/removing an entry may make it wrong relative to the next */
++	if (change_made)
++		goto again;
++
++	*ranges = nr_ranges;
++	return 0;
++}
++
+ /**
+  * Return a sorted list of memory ranges.
+  *
+@@ -147,9 +219,11 @@ int get_memory_ranges(struct memory_rang
+ {
+ 	int ret, i;
+ 
+-	if (have_sys_firmware_memmap())
++	if (have_sys_firmware_memmap()) {
+ 		ret = get_memory_ranges_sysfs(range, ranges);
+-	else
++		if (!ret)
++			ret = fixup_memory_ranges_sysfs(range, ranges);
++	} else
+ 		ret = get_memory_ranges_proc_iomem(range, ranges);
+ 
+ 	/*
+diff -Nrup kexec-tools-2.0.0.orig/kexec/arch/i386/x86-linux-setup.c kexec-tools-2.0.0/kexec/arch/i386/x86-linux-setup.c
+--- kexec-tools-2.0.0.orig/kexec/arch/i386/x86-linux-setup.c	2011-03-16 20:17:26.000000000 +0800
++++ kexec-tools-2.0.0/kexec/arch/i386/x86-linux-setup.c	2011-03-16 20:19:08.000000000 +0800
+@@ -404,6 +404,7 @@ void setup_linux_system_parameters(struc
+ 	struct memory_range *range;
+ 	int i, ranges;
+ 	int boot_param_fd;
++	int sgi_uv_fd;
+ 
+ 	/* Default screen size */
+ 	real_mode->orig_x = 0;
+@@ -432,7 +433,8 @@ void setup_linux_system_parameters(struc
+ 	memset(&real_mode->efi_info, 0, sizeof(struct efi_info));
+ 	/* check to see if we're running an EFI firmware here */
+ 	boot_param_fd = open("/sys/kernel/debug/boot_params/data", O_RDONLY);
+-	if (boot_param_fd > 0) {
++	sgi_uv_fd = open("/proc/sgi_uv", O_RDONLY);
++	if (boot_param_fd > 0 && sgi_uv_fd < 0) {
+ 		int rc;
+ 		lseek(boot_param_fd, 0x1c0, SEEK_SET);
+ 		rc  = read(boot_param_fd, &real_mode->efi_info,
+@@ -440,7 +442,9 @@ void setup_linux_system_parameters(struc
+ 		if (rc != sizeof(struct efi_info))
+ 			printf("ERROR READING EFI INFO\n");
+ 		close(boot_param_fd);	
+-	} else
++	} else if (sgi_uv_fd >= 0)
++		close(sgi_uv_fd);
++	else
+ 		printf("UNABLE TO GATHER EFI DATA\n");
+ 	
+ 	/* default yes: this can be overridden on the command line */
+diff -Nrup kexec-tools-2.0.0.orig/kexec/arch/x86_64/crashdump-x86_64.c kexec-tools-2.0.0/kexec/arch/x86_64/crashdump-x86_64.c
+--- kexec-tools-2.0.0.orig/kexec/arch/x86_64/crashdump-x86_64.c	2011-03-16 20:17:26.000000000 +0800
++++ kexec-tools-2.0.0/kexec/arch/x86_64/crashdump-x86_64.c	2011-03-16 21:33:05.000000000 +0800
+@@ -177,13 +177,6 @@ static int get_crash_memory_ranges(struc
+ 		return -1;
+ 	}
+ 
+-	/* First entry is for first 640K region. Different bios report first
+-	 * 640K in different manner hence hardcoding it */
+-	crash_memory_range[0].start = 0x00000000;
+-	crash_memory_range[0].end = 0x0009ffff;
+-	crash_memory_range[0].type = RANGE_RAM;
+-	memory_ranges++;
+-
+ 	while(fgets(line, sizeof(line), fp) != 0) {
+ 		char *str;
+ 		int type, consumed, count;
+@@ -231,10 +224,6 @@ static int get_crash_memory_ranges(struc
+ 			continue;
+ 		}
+ 
+-		/* First 640K already registered */
+-		if (start >= 0x00000000 && end <= 0x0009ffff)
+-			continue;
+-
+ 		crash_memory_range[memory_ranges].start = start;
+ 		crash_memory_range[memory_ranges].end = end;
+ 		crash_memory_range[memory_ranges].type = type;
+@@ -271,6 +260,9 @@ static int exclude_region(int *nr_ranges
+ {
+ 	int i, j, tidx = -1;
+ 	struct memory_range temp_region;
++	temp_region.start = 0;
++	temp_region.end = 0;
++	temp_region.type = 0;
+ 
+ 	for (i = 0; i < (*nr_ranges); i++) {
+ 		unsigned long long mstart, mend;
+@@ -406,6 +398,7 @@ static int delete_memmap(struct memory_r
+ 				memmap_p[i].end = addr - 1;
+ 				temp_region.start = addr + size;
+ 				temp_region.end = mend;
++				temp_region.type = memmap_p[i].type;
+ 				operation = 1;
+ 				tidx = i;
+ 				break;
+@@ -579,6 +572,49 @@ static int cmdline_add_memmap_type(char 
+ 	return 0;
+ }
+ 
++static void get_backup_area(unsigned long *start, unsigned long *end)
++{
++	const char *iomem = proc_iomem();
++	char line[MAX_LINE];
++	FILE *fp;
++
++	fp = fopen(iomem, "r");
++	if (!fp) {
++		fprintf(stderr, "Cannot open %s: %s\n",
++			iomem, strerror(errno));
++		return;
++	}
++
++	while(fgets(line, sizeof(line), fp) != 0) {
++		char *str;
++		int count, consumed;
++		unsigned long mstart, mend;
++
++		count = sscanf(line, "%lx-%lx : %n",
++			&mstart, &mend, &consumed);
++		if (count != 2)
++			continue;
++		str = line + consumed;
++#ifdef DEBUG
++		printf("%016lx-%016lx : %s",
++			mstart, mend, str);
++#endif
++		/* Hopefully there is only one RAM region in the first 640K */
++		if (memcmp(str, "System RAM\n", 11) == 0 && mend <= 0xa0000 ) {
++#ifdef DEBUG
++			printf("%s: %016lx-%016lx : %s", __func__, mstart, mend, str);
++#endif
++			*start = mstart;
++			*end = mend;
++			fclose(fp);
++			return;
++		}
++	}
++	*start = BACKUP_SRC_START;
++	*end = BACKUP_SRC_END;
++	fclose(fp);
++}
++
+ /* Loads additional segments in case of a panic kernel is being loaded.
+  * One segment for backup region, another segment for storing elf headers
+  * for crash memory image.
+@@ -590,6 +626,10 @@ int load_crashdump_segments(struct kexec
+ 	unsigned long sz, bufsz, memsz, elfcorehdr;
+ 	int nr_ranges, align = 1024, i;
+ 	struct memory_range *mem_range, *memmap_p;
++	unsigned long tmp_backup_end;
++
++	get_backup_area(&info->backup_src_start, &tmp_backup_end);
++	info->backup_src_size =  tmp_backup_end - info->backup_src_start + 1;
+ 
+ 	if (get_kernel_paddr(info))
+ 		return -1;
+@@ -604,12 +644,12 @@ int load_crashdump_segments(struct kexec
+ 	sz = (sizeof(struct memory_range) * (KEXEC_MAX_SEGMENTS + 1));
+ 	memmap_p = xmalloc(sz);
+ 	memset(memmap_p, 0, sz);
+-	add_memmap(memmap_p, BACKUP_SRC_START, BACKUP_SRC_SIZE);
++	add_memmap(memmap_p, info->backup_src_start, info->backup_src_size);
+ 	sz = crash_reserved_mem.end - crash_reserved_mem.start +1;
+ 	add_memmap(memmap_p, crash_reserved_mem.start, sz);
+ 
+ 	/* Create a backup region segment to store backup data*/
+-	sz = (BACKUP_SRC_SIZE + align - 1) & ~(align - 1);
++	sz = (info->backup_src_size + align - 1) & ~(align - 1);
+ 	tmp = xmalloc(sz);
+ 	memset(tmp, 0, sz);
+ 	info->backup_start = add_buffer(info, tmp, sz, sz, align,
+diff -Nrup kexec-tools-2.0.0.orig/kexec/arch/x86_64/kexec-x86_64.c kexec-tools-2.0.0/kexec/arch/x86_64/kexec-x86_64.c
+--- kexec-tools-2.0.0.orig/kexec/arch/x86_64/kexec-x86_64.c	2011-03-16 20:17:26.000000000 +0800
++++ kexec-tools-2.0.0/kexec/arch/x86_64/kexec-x86_64.c	2011-03-16 20:54:24.000000000 +0800
+@@ -167,6 +167,10 @@ void arch_update_purgatory(struct kexec_
+ 		&arch_options.console_vga, sizeof(arch_options.console_vga));
+ 	elf_rel_set_symbol(&info->rhdr, "console_serial",
+ 		&arch_options.console_serial, sizeof(arch_options.console_serial));
++	elf_rel_set_symbol(&info->rhdr, "backup_src_start",
++		&info->backup_src_start, sizeof(info->backup_src_start));
++	elf_rel_set_symbol(&info->rhdr, "backup_src_size",
++		&info->backup_src_size, sizeof(info->backup_src_size));
+ 
+ 	if (info->kexec_flags & KEXEC_ON_CRASH) {
+ 		panic_kernel = 1;
+diff -Nrup kexec-tools-2.0.0.orig/kexec/crashdump.h kexec-tools-2.0.0/kexec/crashdump.h
+--- kexec-tools-2.0.0.orig/kexec/crashdump.h	2011-03-16 20:17:26.000000000 +0800
++++ kexec-tools-2.0.0/kexec/crashdump.h	2011-03-16 20:18:52.000000000 +0800
+@@ -7,8 +7,8 @@ extern int get_xen_vmcoreinfo(uint64_t *
+ 
+ /* Need to find a better way to determine per cpu notes section size. */
+ #define MAX_NOTE_BYTES		1024
+-/* Expecting ELF headers to fit in 16K. Increase it if you need more. */
+-#define KCORE_ELF_HEADERS_SIZE  16384
++/* Expecting ELF headers to fit in 32K. Increase it if you need more. */
++#define KCORE_ELF_HEADERS_SIZE  32768
+ /* The address of the ELF header is passed to the secondary kernel
+  * using the kernel command line option memmap=nnn.
+  * The smallest unit the kernel accepts is in kilobytes,
+diff -Nrup kexec-tools-2.0.0.orig/kexec/kexec.h kexec-tools-2.0.0/kexec/kexec.h
+--- kexec-tools-2.0.0.orig/kexec/kexec.h	2011-03-16 20:17:26.000000000 +0800
++++ kexec-tools-2.0.0/kexec/kexec.h	2011-03-16 20:56:44.000000000 +0800
+@@ -124,6 +124,8 @@ struct kexec_info {
+ 	unsigned long kern_vaddr_start;
+ 	unsigned long kern_paddr_start;
+ 	unsigned long kern_size;
++	unsigned long backup_src_start;
++	unsigned long backup_src_size;
+ };
+ 
+ struct arch_map_entry {
+diff -Nrup kexec-tools-2.0.0.orig/purgatory/arch/i386/crashdump_backup.c kexec-tools-2.0.0/purgatory/arch/i386/crashdump_backup.c
+--- kexec-tools-2.0.0.orig/purgatory/arch/i386/crashdump_backup.c	2011-03-16 20:17:26.000000000 +0800
++++ kexec-tools-2.0.0/purgatory/arch/i386/crashdump_backup.c	2011-03-16 20:54:24.000000000 +0800
+@@ -20,13 +20,15 @@
+ 
+ #include <stdint.h>
+ #include <string.h>
+-#include "../../../kexec/arch/i386/crashdump-x86.h"
+ 
+ /* Backup region start gets set after /proc/iomem has been parsed. */
+ /* We reuse the same code for x86_64 also so changing backup_start to
+    unsigned long */
+ unsigned long  backup_start = 0;
+ 
++unsigned long backup_src_start = 0;
++unsigned long backup_src_size = 0;
++
+ /* Backup first 640K of memory to backup region as reserved by kexec.
+  * Assuming first 640K has to be present on i386 machines and no address
+  * validity checks have to be performed. */
+@@ -34,11 +36,16 @@ unsigned long  backup_start = 0;
+ void crashdump_backup_memory(void)
+ {
+ 	void *dest, *src;
++	size_t size;
++
++	src = (void *) backup_src_start;
++	size = (size_t) backup_src_size;
+ 
+-	src = (void *) BACKUP_SRC_START;
++	if (!size)
++		return;
+ 
+ 	if (backup_start) {
+ 		dest = (void *)(backup_start);
+-		memcpy(dest, src, BACKUP_SRC_SIZE);
++		memcpy(dest, src, size);
+ 	}
+ }

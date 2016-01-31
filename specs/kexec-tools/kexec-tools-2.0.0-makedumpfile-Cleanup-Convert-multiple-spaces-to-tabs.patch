@@ -1,0 +1,167 @@
+Subject: [PATCH 15/18] Cleanup: Convert multiple spaces to tabs.
+
+This is a backport of
+
+    commit 3bcc1d5090882da485425ca7d6d7ce892d0760a3
+    Author: Atsushi Kumagai <kumagai-atsushi@mxc.nes.nec.co.jp>
+    Date:   Thu Dec 22 10:47:09 2011 +0900
+    
+    [PATCH] Cleanup: Convert multiple spaces to tabs.
+    
+    Signed-off-by: Atsushi Kumagai <kumagai-atsushi@mxc.nes.nec.co.jp>
+---
+diff -Nrup kexec-tools-2.0.0.old/makedumpfile-1.3.5/diskdump_mod.h kexec-tools-2.0.0/makedumpfile-1.3.5/diskdump_mod.h
+--- kexec-tools-2.0.0.old/makedumpfile-1.3.5/diskdump_mod.h	2012-04-05 08:04:28.125497642 -0400
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/diskdump_mod.h	2012-04-05 08:12:53.265572831 -0400
+@@ -33,12 +33,12 @@
+ #define DUMP_HEADER_COMPRESSED  8
+ 
+ struct new_utsname {
+-        char sysname[65];
+-        char nodename[65];
+-        char release[65];
+-        char version[65];
+-        char machine[65];
+-        char domainname[65];
++	char sysname[65];
++	char nodename[65];
++	char release[65];
++	char version[65];
++	char machine[65];
++	char domainname[65];
+ };
+ 
+ struct disk_dump_header {
+diff -Nrup kexec-tools-2.0.0.old/makedumpfile-1.3.5/makedumpfile.c kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.c
+--- kexec-tools-2.0.0.old/makedumpfile-1.3.5/makedumpfile.c	2012-04-05 08:04:28.125497642 -0400
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.c	2012-04-05 08:15:35.325497579 -0400
+@@ -459,7 +459,7 @@ readmem(int type_addr, unsigned long lon
+ 		break;
+ 	case MADDR_XEN:
+ 		paddr = addr;
+-  		break;
++		break;
+ 	default:
+ 		ERRMSG("Invalid address type (%d).\n", type_addr);
+ 		goto error;
+@@ -534,7 +534,7 @@ get_kernel_version(char *release)
+ 	start = end + 1;
+ 	rel = strtol(start, &end, 10);
+ 	if (rel == LONG_MAX)
+-  		return FALSE;
++		return FALSE;
+ 
+ 	version = KERNEL_VERSION(maj, min, rel);
+ 
+@@ -6254,7 +6254,7 @@ write_kdump_header(void)
+ 	 */
+ 	strcpy(dh->signature, KDUMP_SIGNATURE);
+ 	dh->header_version = 5;
+-  	dh->block_size     = info->page_size;
++	dh->block_size     = info->page_size;
+ 	dh->sub_hdr_size   = sizeof(kh) + info->size_note;
+ 	dh->sub_hdr_size   = divideup(dh->sub_hdr_size, dh->block_size);
+ 	dh->max_mapnr      = info->max_mapnr;
+diff -Nrup kexec-tools-2.0.0.old/makedumpfile-1.3.5/makedumpfile.h kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.h
+--- kexec-tools-2.0.0.old/makedumpfile-1.3.5/makedumpfile.h	2012-04-05 08:04:28.125497642 -0400
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.h	2012-04-05 08:12:59.686498252 -0400
+@@ -1521,11 +1521,11 @@ int get_xen_info_x86(void);
+ #define XEN_VIRT_START        (0xffff828c80000000)
+ 
+ #define is_xen_vaddr(x) \
+-        ((x) >= HYPERVISOR_VIRT_START && (x) < HYPERVISOR_VIRT_END)
++	((x) >= HYPERVISOR_VIRT_START && (x) < HYPERVISOR_VIRT_END)
+ #define is_direct(x) \
+-        ((x) >= DIRECTMAP_VIRT_START && (x) < DIRECTMAP_VIRT_END)
++	((x) >= DIRECTMAP_VIRT_START && (x) < DIRECTMAP_VIRT_END)
+ #define is_xen_text(x) \
+-        ((x) >= XEN_VIRT_START && (x) < DIRECTMAP_VIRT_START)
++	((x) >= XEN_VIRT_START && (x) < DIRECTMAP_VIRT_START)
+ 
+ unsigned long long kvtop_xen_x86_64(unsigned long kvaddr);
+ #define kvtop_xen(X)	kvtop_xen_x86_64(X)
+diff -Nrup kexec-tools-2.0.0.old/makedumpfile-1.3.5/sadump_info.c kexec-tools-2.0.0/makedumpfile-1.3.5/sadump_info.c
+--- kexec-tools-2.0.0.old/makedumpfile-1.3.5/sadump_info.c	2012-04-05 08:04:28.125497642 -0400
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/sadump_info.c	2012-04-05 08:12:59.686498252 -0400
+@@ -76,9 +76,9 @@ struct sadump_info {
+ 	size_t cpumask_size;
+ /* Backup Region, First 640K of System RAM. */
+ #define KEXEC_BACKUP_SRC_END    0x0009ffff
+-        unsigned long long backup_src_start;
+-        unsigned long backup_src_size;
+-        unsigned long long backup_offset;
++	unsigned long long backup_src_start;
++	unsigned long backup_src_size;
++	unsigned long long backup_offset;
+ 	int kdump_backed_up;
+ };
+ 
+@@ -905,38 +905,38 @@ sadump_get_max_mapnr(void)
+ int
+ sadump_virt_phys_base(void)
+ {
+-        char buf[BUFSIZE];
+-        unsigned long phys, linux_banner_phys;
++	char buf[BUFSIZE];
++	unsigned long phys, linux_banner_phys;
+ 
+ 	if (SYMBOL(linux_banner) == NOT_FOUND_SYMBOL) {
+ 		DEBUG_MSG("sadump: symbol linux_banner is not found\n");
+ 		goto failed;
+ 	}
+ 
+-        linux_banner_phys = SYMBOL(linux_banner) - __START_KERNEL_map;
++	linux_banner_phys = SYMBOL(linux_banner) - __START_KERNEL_map;
+ 
+-        if (readmem(PADDR, linux_banner_phys + info->phys_base, buf,
++	if (readmem(PADDR, linux_banner_phys + info->phys_base, buf,
+ 		    strlen("Linux version")) && STRNEQ(buf, "Linux version"))
+                 return TRUE;
+ 
+-        for (phys = (-MEGABYTES(16)); phys != MEGABYTES(16+1);
++	for (phys = (-MEGABYTES(16)); phys != MEGABYTES(16+1);
+              phys += MEGABYTES(1)) {
+-                if (readmem(PADDR, linux_banner_phys + phys, buf,
++		if (readmem(PADDR, linux_banner_phys + phys, buf,
+ 			    strlen("Linux version")) &&
+ 		    STRNEQ(buf, "Linux version")) {
+-                        DEBUG_MSG("sadump: phys_base: %lx %s\n", phys,
++			DEBUG_MSG("sadump: phys_base: %lx %s\n", phys,
+ 				  info->phys_base != phys ? "override" : "");
+-                        info->phys_base = phys;
+-                        return TRUE;
+-                }
+-        }
++			info->phys_base = phys;
++			return TRUE;
++		}
++	}
+ 
+ failed:
+ 	info->phys_base = 0;
+ 
+ 	DEBUG_MSG("sadump: failed to calculate phys_base; default to 0\n");
+ 
+-        return FALSE;
++	return FALSE;
+ }
+ 
+ #endif /* __x86_64__ */
+@@ -1113,7 +1113,7 @@ sadump_check_debug_info(void)
+ 		return FALSE;
+ 	if (OFFSET(user_regs_struct.fs) == NOT_FOUND_STRUCTURE)
+ 		return FALSE;
+-        if (OFFSET(user_regs_struct.gs) == NOT_FOUND_STRUCTURE)
++	if (OFFSET(user_regs_struct.gs) == NOT_FOUND_STRUCTURE)
+ 		return FALSE;
+ #endif /* __x86_64__ */
+ 	return TRUE;
+@@ -1863,7 +1863,7 @@ sadump_kdump_backup_region_init(void)
+ 		return;
+ 	}
+ 
+-        if (!readmem(PADDR, elfcorehdr_p, buf, SIZE(elf64_hdr))) {
++	if (!readmem(PADDR, elfcorehdr_p, buf, SIZE(elf64_hdr))) {
+ 		ERRMSG("Can't read elfcorehdr ELF header. %s\n",
+ 		       strerror(errno));
+ 		return;

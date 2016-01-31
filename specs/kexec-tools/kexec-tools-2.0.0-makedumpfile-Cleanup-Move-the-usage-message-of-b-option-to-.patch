@@ -1,0 +1,40 @@
+From 0097767db7cba8d934cdae0cee70ae55d579faf1 Mon Sep 17 00:00:00 2001
+Message-Id: <0097767db7cba8d934cdae0cee70ae55d579faf1.1372844698.git.bhe@redhat.com>
+From: Atsushi Kumagai <kumagai-atsushi@mxc.nes.nec.co.jp>
+Date: Tue, 4 Jun 2013 16:47:01 +0900
+Subject: [PATCH] [PATCH] Cleanup: Move the usage message of -b option to a more suitable position.
+
+Signed-off-by: Atsushi Kumagai <kumagai-atsushi@mxc.nes.nec.co.jp>
+---
+ print_info.c |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/makedumpfile-1.3.5/print_info.c b/makedumpfile-1.3.5/print_info.c
+index acc17f2..06939e0 100644
+--- a/makedumpfile-1.3.5/print_info.c
++++ b/makedumpfile-1.3.5/print_info.c
+@@ -175,6 +175,10 @@ print_usage(void)
+ 	MSG("      Reassemble multiple DUMPFILEs, which are created by --split option,\n");
+ 	MSG("      into one DUMPFILE. dumpfile1 and dumpfile2 are reassembled into dumpfile.\n");
+ 	MSG("\n");
++	MSG("  [-b <order>]\n");
++	MSG("      Specify the cache 2^order pages in ram when generating DUMPFILE before\n");
++	MSG("      writing to output. The default value is 4.\n");
++	MSG("\n");
+ 	MSG("  [--cyclic-buffer BUFFER_SIZE]:\n");
+ 	MSG("      Specify the buffer size in kilo bytes for analysis in the cyclic mode.\n");
+ 	MSG("      Actually, the double of BUFFER_SIZE kilo bytes will be allocated in memory.\n");
+@@ -254,10 +258,6 @@ print_usage(void)
+ 	MSG("  [-h]:\n");
+ 	MSG("      Show help message and LZO/snappy support status (enabled/disabled).\n");
+ 	MSG("\n");
+-	MSG("  [-b <order>]\n");
+-	MSG("      Specify the cache 2^order pages in ram when generating vmcore info\n");
+-	MSG("      before writing to output\n");
+-	MSG("\n");
+ 	MSG("  [-v]:\n");
+ 	MSG("      Show the version of makedumpfile.\n");
+ 	MSG("\n");
+-- 
+1.7.1
+

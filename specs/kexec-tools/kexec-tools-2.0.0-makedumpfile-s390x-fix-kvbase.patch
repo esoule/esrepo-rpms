@@ -1,0 +1,29 @@
+commit c69f915b8163bb9209cb329a6186b7261b545a4b
+Author: Mahesh Salgaonkar <mahesh@linux.vnet.ibm.com>
+Date:   Tue Mar 22 11:57:36 2011 +0900
+
+    [PATCH] s390x: Fix KVBASE to correct value for s390x arcitecture
+    
+    While excluding free pages from s390x dumps taken on LPAR, makedumpfile
+    fails to convert page address to pfn. The reason is, the memory for
+    mem_section structure is allocated below '_stext' and since KVBASE is
+    set to SYMBOL(_stext), the function is_kvaddr() fails and return NULL
+    address.
+    
+    Set KVBASE to KENRELBASE(0) for s390x architecture to fix this issue.
+    
+    Signed-off-by: Mahesh Salgaonkar <mahesh@linux.vnet.ibm.com>
+
+
+diff -Nrup kexec-tools-2.0.0.orig/makedumpfile-1.3.5/makedumpfile.h kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.h
+--- kexec-tools-2.0.0.orig/makedumpfile-1.3.5/makedumpfile.h	2011-04-05 12:41:00.000000000 +0800
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.h	2011-04-05 12:41:27.000000000 +0800
+@@ -600,7 +600,7 @@ do { \
+ #ifdef __s390x__
+ #define __PAGE_OFFSET		(info->page_size - 1)
+ #define KERNELBASE		(0)
+-#define KVBASE			(SYMBOL(_stext))
++#define KVBASE			KERNELBASE
+ #define _SECTION_SIZE_BITS	(28)
+ #define _MAX_PHYSMEM_BITS	(42)
+ 

@@ -1,0 +1,127 @@
+From 37afcd52ac5dd276a51af51cbee9531b91911bfa Mon Sep 17 00:00:00 2001
+From: HATAYAMA Daisuke <d.hatayama@jp.fujitsu.com>
+Date: Fri, 20 Feb 2015 10:18:41 +0900
+Subject: [PATCH] [PATCH] sadump: Support more than 16TB physical memory space.
+
+This patch makes sadump format support more than 16TB physical memory
+space.
+
+The limitation is caused by several members of dump_header structure:
+max_mapnr and the others. They have 4 byte length only. In particular,
+max_mapnr member gets overflow if more than 16TB physical memory space
+is given.
+
+To support more than 16TB physical memory space, this patch adds new 4
+64-bit length members in dump_header structure:
+
+- max_mapnr_64
+- total_ram_blocks_64
+- device_blocks_64
+- written_blocks_64
+
+Next table shows correspondence between the 32-bit version and the
+64-bit version members:
+
+    | 32-bit version         | 64-bit version            |
+    |------------------------+---------------------------|
+    | max_mapnr              | max_mapnr_64              |
+    | total_ram_blocks       | total_ram_blocks_64       |
+    | device_blocks          | device_blocks_64          |
+    | written_blocks         | written_blocks_64         |
+
+In addition, header_version member of dump_header structure is
+increased to 1 in this extended new format.
+
+Old makedumpfile can access the new sadump format under 16TB
+correctly.
+
+Current implementation treats vmcore with kernel version 2 or later as
+kernel version 1, assuming backward compatibility.
+
+Signed-off-by: HATAYAMA Daisuke <d.hatayama@jp.fujitsu.com>
+---
+ sadump_info.c | 20 +++++++++++++++++---
+ sadump_mod.h  |  8 ++++++++
+ 2 files changed, 25 insertions(+), 3 deletions(-)
+
+diff --git a/makedumpfile-1.3.5/sadump_info.c b/makedumpfile-1.3.5/sadump_info.c
+index 9434ff7..e2c4f03 100644
+--- a/makedumpfile-1.3.5/sadump_info.c
++++ b/makedumpfile-1.3.5/sadump_info.c
+@@ -84,6 +84,7 @@ struct sadump_info {
+ 	unsigned long backup_src_size;
+ 	unsigned long long backup_offset;
+ 	int kdump_backed_up;
++	mdf_pfn_t max_mapnr;
+ };
+ 
+ static char *guid_to_str(efi_guid_t *guid, char *buf, size_t buflen);
+@@ -625,6 +626,19 @@ restart:
+ 		offset += sh->sub_hdr_size * block_size;
+ 	}
+ 
++	switch (sh->header_version) {
++	case 0:
++		si->max_mapnr = (mdf_pfn_t)(uint64_t)sh->max_mapnr;
++		break;
++	default:
++		ERRMSG("sadump: unsupported header version: %u\n"
++		       "sadump: assuming header version: 1\n",
++		       sh->header_version);
++	case 1:
++		si->max_mapnr = (mdf_pfn_t)sh->max_mapnr_64;
++		break;
++	}
++
+ 	if (!sh->bitmap_blocks) {
+ 		DEBUG_MSG("sadump: bitmap_blocks is zero\n");
+ 		return FALSE;
+@@ -775,7 +789,7 @@ sadump_initialize_bitmap_memory(void)
+ 	memset(bmp->buf, 0, BUFSIZE_BITMAP);
+ 	bmp->offset = dumpable_bitmap_offset;
+ 
+-	max_section = divideup(sh->max_mapnr, SADUMP_PF_SECTION_NUM);
++	max_section = divideup(si->max_mapnr, SADUMP_PF_SECTION_NUM);
+ 
+ 	block_table = calloc(sizeof(unsigned long long), max_section);
+ 	if (block_table == NULL) {
+@@ -906,7 +920,7 @@ sadump_set_timestamp(struct timeval *ts)
+ mdf_pfn_t
+ sadump_get_max_mapnr(void)
+ {
+-	return si->sh_memory->max_mapnr;
++	return si->max_mapnr;
+ }
+ 
+ #ifdef __x86_64__
+@@ -964,7 +978,7 @@ readpage_sadump(unsigned long long paddr, void *bufptr)
+ 
+ 	pfn = paddr_to_pfn(paddr);
+ 
+-	if (pfn >= si->sh_memory->max_mapnr)
++	if (pfn >= si->max_mapnr)
+ 		return FALSE;
+ 
+ 	if (!is_dumpable(info->bitmap_memory, pfn)) {
+diff --git a/makedumpfile-1.3.5/sadump_mod.h b/makedumpfile-1.3.5/sadump_mod.h
+index afeead8..0dd5bb5 100644
+--- a/makedumpfile-1.3.5/sadump_mod.h
++++ b/makedumpfile-1.3.5/sadump_mod.h
+@@ -106,6 +106,14 @@ struct sadump_header {
+ 	uint32_t written_blocks;	/* Number of written blocks */
+ 	uint32_t current_cpu;	/* CPU# which handles dump */
+ 	uint32_t nr_cpus;	/* Number of CPUs */
++	/*
++	 * The members from below are supported in header version 1
++	 * and later.
++	 */
++	uint64_t max_mapnr_64;
++	uint64_t total_ram_blocks_64;
++	uint64_t device_blocks_64;
++	uint64_t written_blocks_64;
+ };
+ 
+ struct sadump_apic_state {
+-- 
+1.8.5.3
+

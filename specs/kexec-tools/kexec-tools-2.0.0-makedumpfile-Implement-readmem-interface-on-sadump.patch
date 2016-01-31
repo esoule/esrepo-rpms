@@ -1,0 +1,256 @@
+Subject: [PATCH 08/18] Implement readmem() interface on sadump-related formats
+
+This is a backport of
+
+    commit 9c0e8544e14cd6237e39f7bd8303ed3fe74a963a
+    Author: HATAYAMA Daisuke <d.hatayama@jp.fujitsu.com>
+    Date:   Fri Dec 16 10:49:14 2011 +0900
+    
+    [PATCH v2 08/14] Implement readmem() interface on sadump-related formats
+    
+    Very similar to the ones in kdump-compressed format.
+    
+    Signed-off-by: HATAYAMA Daisuke <d.hatayama@jp.fujitsu.com>
+---
+diff -Nrup kexec-tools-2.0.0.old/makedumpfile-1.3.5/makedumpfile.c kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.c
+--- kexec-tools-2.0.0.old/makedumpfile-1.3.5/makedumpfile.c	2012-04-04 05:37:24.268591337 -0400
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.c	2012-04-05 04:12:38.221415273 -0400
+@@ -484,6 +484,9 @@ readmem(int type_addr, unsigned long lon
+ 	if (info->flag_refiltering)
+ 		return readpmem_kdump_compressed(paddr, bufptr, read_size);
+ 
++	if (info->flag_sadump)
++		return readpmem_sadump(paddr, bufptr, read_size);
++
+ 	if (!(offset = paddr_to_offset(paddr))) {
+ 		ERRMSG("Can't convert a physical address(%llx) to offset.\n",
+ 		    paddr);
+@@ -5415,6 +5418,9 @@ create_1st_bitmap(void)
+ 	if (info->flag_refiltering)
+ 		return copy_1st_bitmap_from_memory();
+ 
++	if (info->flag_sadump)
++		return sadump_copy_1st_bitmap_from_memory();
++
+ 	/*
+ 	 * At first, clear all the bits on the 1st-bitmap.
+ 	 */
+@@ -6655,7 +6661,7 @@ read_pfn(unsigned long long pfn, unsigne
+ 	size_t size1, size2;
+ 
+ 	paddr = pfn_to_paddr(pfn);
+-	if (info->flag_refiltering) {
++	if (info->flag_refiltering || info->flag_sadump) {
+ 		if (!readmem(PADDR, paddr, buf, info->page_size)) {
+ 			ERRMSG("Can't get the page data.\n");
+ 			return FALSE;
+diff -Nrup kexec-tools-2.0.0.old/makedumpfile-1.3.5/sadump_info.c kexec-tools-2.0.0/makedumpfile-1.3.5/sadump_info.c
+--- kexec-tools-2.0.0.old/makedumpfile-1.3.5/sadump_info.c	2012-04-04 05:37:24.267591390 -0400
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/sadump_info.c	2012-04-05 04:12:38.222656024 -0400
+@@ -49,6 +49,9 @@ static int read_device_diskset(struct sa
+ 			       size_t bytes, ulong *offset);
+ static int read_sadump_header(char *filename);
+ static int read_sadump_header_diskset(int diskid, struct sadump_diskset_info *sdi);
++static unsigned long long pfn_to_block(unsigned long long pfn);
++static int lookup_diskset(unsigned long long whole_offset, int *diskid,
++			  unsigned long long *disk_offset);
+ 
+ static struct sadump_info sadump_info = {};
+ static struct sadump_info *si = &sadump_info;
+@@ -87,6 +90,45 @@ check_and_get_sadump_header_info(char *f
+ 	return TRUE;
+ }
+ 
++int
++sadump_copy_1st_bitmap_from_memory(void)
++{
++	struct sadump_header *sh = si->sh_memory;
++	char buf[si->sh_memory->block_size];
++	off_t offset_page;
++	unsigned long bitmap_offset, bitmap_len;
++
++	bitmap_offset =	si->sub_hdr_offset + sh->block_size*sh->sub_hdr_size;
++	bitmap_len = sh->block_size * sh->bitmap_blocks;
++
++	if (lseek(info->fd_memory, bitmap_offset, SEEK_SET) < 0) {
++		ERRMSG("Can't seek %s. %s\n",
++		       info->name_memory, strerror(errno));
++		return FALSE;
++	}
++	if (lseek(info->bitmap1->fd, info->bitmap1->offset, SEEK_SET) < 0) {
++		ERRMSG("Can't seek the bitmap(%s). %s\n",
++		       info->bitmap1->file_name, strerror(errno));
++		return FALSE;
++	}
++	offset_page = 0;
++	while (offset_page < bitmap_len) {
++		if (read(info->fd_memory, buf, sizeof(buf)) != sizeof(buf)) {
++			ERRMSG("Can't read %s. %s\n",
++			       info->name_memory, strerror(errno));
++			return FALSE;
++		}
++		if (write(info->bitmap1->fd, buf, sizeof(buf)) != sizeof(buf)) {
++			ERRMSG("Can't write the bitmap(%s). %s\n",
++			       info->bitmap1->file_name, strerror(errno));
++			return FALSE;
++		}
++		offset_page += sizeof(buf);
++	}
++
++	return TRUE;
++}
++
+ static char *
+ guid_to_str(efi_guid_t *guid, char *buf, size_t buflen)
+ {
+@@ -624,6 +666,109 @@ sadump_get_max_mapnr(void)
+ }
+ 
+ int
++readpmem_sadump(unsigned long long paddr, void *bufptr, size_t size)
++{
++	unsigned long long pfn, block, whole_offset, perdisk_offset;
++	ulong page_offset;
++	char buf[info->page_size];
++	int fd_memory;
++
++	pfn = paddr_to_pfn(paddr);
++	page_offset = paddr % info->page_size;
++
++	if (pfn >= si->sh_memory->max_mapnr)
++		goto error;
++
++	if (!is_dumpable(info->bitmap_memory, pfn)) {
++		ERRMSG("pfn(%llx) is excluded from %s.\n", pfn,
++		       info->name_memory);
++		goto error;
++	}
++
++	block = pfn_to_block(pfn);
++	whole_offset = block * si->sh_memory->block_size;
++
++	if (info->flag_sadump == SADUMP_DISKSET) {
++		int diskid;
++
++		if (!lookup_diskset(whole_offset, &diskid, &perdisk_offset))
++			goto error;
++
++		fd_memory = si->diskset_info[diskid].fd_memory;
++		perdisk_offset += si->diskset_info[diskid].data_offset;
++
++	} else {
++		fd_memory = info->fd_memory;
++		perdisk_offset = whole_offset + si->data_offset;
++
++	}
++
++	if (lseek(fd_memory, perdisk_offset, SEEK_SET) < 0)
++		goto error;
++
++	if (read(fd_memory, buf, sizeof(buf)) != sizeof(buf))
++		goto error;
++
++	memcpy(bufptr, buf + page_offset, size);
++
++	return size;
++
++error:
++	DEBUG_MSG("type_addr: %d, addr:%llx, size:%zd\n", PADDR, paddr, size);
++
++	return FALSE;
++}
++
++static unsigned long long
++pfn_to_block(unsigned long long pfn)
++{
++	unsigned long long block, section, p;
++
++	section = pfn / SADUMP_PF_SECTION_NUM;
++
++	if (section)
++		block = si->block_table[section - 1];
++	else
++		block = 0;
++
++	for (p = section * SADUMP_PF_SECTION_NUM; p < pfn; ++p)
++		if (is_dumpable(info->bitmap_memory, p))
++			block++;
++
++	return block;
++}
++
++static int
++lookup_diskset(unsigned long long whole_offset, int *diskid,
++	       unsigned long long *disk_offset)
++{
++	unsigned long long offset = whole_offset;
++	int i;
++
++	for (i = 0; i < si->num_disks; ++i) {
++		struct sadump_diskset_info *sdi = &si->diskset_info[i];
++		unsigned long long used_device_i, data_offset_i, ram_size;
++
++		used_device_i = sdi->sph_memory->used_device;
++		data_offset_i = sdi->data_offset;
++
++		ram_size = used_device_i - data_offset_i;
++
++		if (offset < ram_size)
++			break;
++		offset -= ram_size;
++	}
++
++	if (i == si->num_disks)
++		return FALSE;
++
++	*diskid = i;
++	*disk_offset = offset;
++
++	return TRUE;
++}
++
++int
+ sadump_add_diskset_info(char *name_memory)
+ {
+ 	si->num_disks++;
+diff -Nrup kexec-tools-2.0.0.old/makedumpfile-1.3.5/sadump_info.h kexec-tools-2.0.0/makedumpfile-1.3.5/sadump_info.h
+--- kexec-tools-2.0.0.old/makedumpfile-1.3.5/sadump_info.h	2012-04-04 05:37:24.267591390 -0400
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/sadump_info.h	2012-04-05 04:12:38.222656024 -0400
+@@ -25,10 +25,12 @@
+ #if defined(__x86__) || defined(__x86_64__)
+ 
+ int check_and_get_sadump_header_info(char *filename);
++int sadump_copy_1st_bitmap_from_memory(void);
+ int sadump_initialize_bitmap_memory(void);
+ int sadump_get_nr_cpus(int *nr_cpus);
+ int sadump_set_timestamp(struct timeval *ts);
+ unsigned long long sadump_get_max_mapnr(void);
++int readpmem_sadump(unsigned long long paddr, void *bufptr, size_t size);
+ int sadump_add_diskset_info(char *name_memory);
+ long sadump_page_size(void);
+ char *sadump_head_disk_name_memory(void);
+@@ -51,6 +53,11 @@ static inline int check_and_get_sadump_h
+ 	return TRUE;
+ }
+ 
++static inline int sadump_copy_1st_bitmap_from_memory(void)
++{
++	return FALSE;
++}
++
+ static inline int sadump_initialize_bitmap_memory(void)
+ {
+ 	return FALSE;
+@@ -71,6 +78,12 @@ static inline unsigned long long sadump_
+ 	return 0;
+ }
+ 
++static inline int readpmem_sadump(unsigned long long paddr,
++				  void *bufptr, size_t size)
++{
++	return FALSE;
++}
++
+ static inline int sadump_add_diskset_info(char *name_memory)
+ {
+ 	return TRUE;

@@ -1,0 +1,146 @@
+From 6c19012f352d13147211cb3573e70d051a109a41 Mon Sep 17 00:00:00 2001
+From: Petr Tesarik <ptesarik@suse.cz>
+Date: Tue, 27 May 2014 08:58:18 +0900
+Subject: [PATCH v4 1/2] Generic handling of multi-page exclusions.
+
+When multiple pages are excluded from the dump, store the extents in
+struct cycle and check if anything is still pending on the next invocation
+of __exclude_unnecessary_pages. This assumes that:
+
+  1. after __exclude_unnecessary_pages is called for a struct mem_map_data
+     that extends beyond the current cycle, it is not called again during
+     that cycle,
+  2. in the next cycle, __exclude_unnecessary_pages is not called before
+     this final struct mem_map_data.
+
+Both assumptions are met if struct mem_map_data segments:
+
+  1. do not overlap,
+  2. are sorted by physical address in ascending order.
+
+These two conditions are true for all supported memory models.
+
+Note that the start PFN of the excluded extent is set to the end of the
+current cycle (which is equal to the start of the next cycle, see
+update_cycle), so only the part of the excluded region which falls beyond
+current cycle buffer is valid. If the excluded region is completely
+processed in the current cycle, the start PFN is bigger than the end PFN
+and no work is done at the beginning of the next cycle.
+
+After processing the leftover from last cycle, pfn_start and mem_map are
+adjusted to skip the excluded pages. There is no check whether the
+adjusted pfn_start is within the current cycle. Nothing bad happens if
+it isn't, because pages outside the current cyclic region are ignored by
+the subsequent loop, and the remainder is postponed to the next cycle by
+exclude_range().
+
+Signed-off-by: Petr Tesarik <ptesarik@suse.cz>
+---
+ makedumpfile-1.3.5/makedumpfile.c | 52 ++++++++++++++++++++++++++++++++++++++--------------
+ makedumpfile-1.3.5/makedumpfile.h |  5 +++++
+ 2 files changed, 43 insertions(+), 14 deletions(-)
+
+diff --git a/makedumpfile-1.3.5/makedumpfile.c b/makedumpfile-1.3.5/makedumpfile.c
+index edfe30b..ebc1403 100644
+--- a/makedumpfile-1.3.5/makedumpfile.c
++++ b/makedumpfile-1.3.5/makedumpfile.c
+@@ -44,6 +44,9 @@ static void first_cycle(mdf_pfn_t start, mdf_pfn_t max, struct cycle *cycle)
+ 
+ 	if (cycle->end_pfn > max)
+ 		cycle->end_pfn = max;
++
++	cycle->exclude_pfn_start = 0;
++	cycle->exclude_pfn_end = 0;
+ }
+ 
+ static void update_cycle(mdf_pfn_t max, struct cycle *cycle)
+@@ -4686,6 +4689,26 @@ initialize_2nd_bitmap_cyclic(struct cycle *cycle)
+ 	return TRUE;
+ }
+ 
++static void
++exclude_range(mdf_pfn_t *counter, mdf_pfn_t pfn, mdf_pfn_t endpfn,
++	      struct cycle *cycle)
++{
++	if (cycle) {
++		cycle->exclude_pfn_start = cycle->end_pfn;
++		cycle->exclude_pfn_end = endpfn;
++		cycle->exclude_pfn_counter = counter;
++
++		if (cycle->end_pfn < endpfn)
++			endpfn = cycle->end_pfn;
++	}
++
++	while (pfn < endpfn) {
++		if (clear_bit_on_2nd_bitmap_for_kernel(pfn, cycle))
++			(*counter)++;
++		++pfn;
++	}
++}
++
+ int
+ __exclude_unnecessary_pages(unsigned long mem_map,
+     mdf_pfn_t pfn_start, mdf_pfn_t pfn_end, struct cycle *cycle)
+@@ -4700,6 +4723,18 @@ __exclude_unnecessary_pages(unsigned long mem_map,
+ 	unsigned long flags, mapping, private = 0;
+ 
+ 	/*
++	 * If a multi-page exclusion is pending, do it first
++	 */
++	if (cycle && cycle->exclude_pfn_start < cycle->exclude_pfn_end) {
++		exclude_range(cycle->exclude_pfn_counter,
++			cycle->exclude_pfn_start, cycle->exclude_pfn_end,
++			cycle);
++
++		mem_map += (cycle->exclude_pfn_end - pfn_start) * SIZE(page);
++		pfn_start = cycle->exclude_pfn_end;
++	}
++
++	/*
+ 	 * Refresh the buffer of struct page, when changing mem_map.
+ 	 */
+ 	pfn_read_start = ULONGLONG_MAX;
+@@ -4763,21 +4798,10 @@ __exclude_unnecessary_pages(unsigned long mem_map,
+ 		if ((info->dump_level & DL_EXCLUDE_FREE)
+ 		    && info->page_is_buddy
+ 		    && info->page_is_buddy(flags, _mapcount, private, _count)) {
+-			int i, nr_pages = 1 << private;
++			int nr_pages = 1 << private;
++
++			exclude_range(&pfn_free, pfn, pfn + nr_pages, cycle);
+ 
+-			for (i = 0; i < nr_pages; ++i) {
+-				/*
+-				 * According to combination of
+-				 * MAX_ORDER and size of cyclic
+-				 * buffer, this clearing bit operation
+-				 * can overrun the cyclic buffer.
+-				 *
+-				 * See check_cyclic_buffer_overrun()
+-				 * for the detail.
+-				 */
+-				if (clear_bit_on_2nd_bitmap_for_kernel((pfn + i), cycle))
+-					pfn_free++;
+-			}
+ 			pfn += nr_pages - 1;
+ 			mem_map += (nr_pages - 1) * SIZE(page);
+ 		}
+diff --git a/makedumpfile-1.3.5/makedumpfile.h b/makedumpfile-1.3.5/makedumpfile.h
+index 7acb23a..9402f05 100644
+--- a/makedumpfile-1.3.5/makedumpfile.h
++++ b/makedumpfile-1.3.5/makedumpfile.h
+@@ -1595,6 +1595,11 @@ int get_xen_info_ia64(void);
+ struct cycle {
+ 	mdf_pfn_t start_pfn;
+ 	mdf_pfn_t end_pfn;
++
++	/* for excluding multi-page regions */
++	mdf_pfn_t exclude_pfn_start;
++	mdf_pfn_t exclude_pfn_end;
++	mdf_pfn_t *exclude_pfn_counter;
+ };
+ 
+ static inline int
+-- 
+1.9.3
+

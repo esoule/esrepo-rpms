@@ -1,0 +1,64 @@
+commit 4d5bca23164d5943bb0f75bdd5e7866af795bb0c
+Author: Cliff Wickman <cpw@sgi.com>
+Date:   Wed Jun 16 08:51:04 2010 -0500
+
+    makedumpfile: output files filling ramdisk
+    
+    Tested on SGI UV, which is x86_64.
+    
+    makedumpfile's path FILENAME_BITMAP "/tmp/..." causes it to try to write
+    bitmap files to the ramdisk.  These can be very large if the machine has
+    lots of memory, and so writing the file can fail.
+    
+    (makedumpfile is exec'd by kdumptool. And kdumptool should chroot to
+     its --root directory.  But if the intent is to avoid this problem it
+     doesn't seem to work.  That may be the proper fix, rather than the below.)
+    
+    A TMPDIR environment variable is set in the script
+    /lib/mkinitrd/scripts/boot-kdump.sh. So this patch assumes that
+    the FILENAME_BITMAP path should be based at TMPDIR.
+    
+    Diffed against makedumpfile-1.3.5
+    
+    Signed-off-by: Cliff Wickman <cpw@sgi.com>
+    Signed-off-by: Masayuki Igawa <igawa@mxs.nes.nec.co.jp>
+
+
+--- kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.c	2010-07-09 15:14:07.000000000 +0800
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.c	2010-07-09 15:14:36.000000000 +0800
+@@ -959,14 +959,21 @@
+ open_dump_bitmap(void)
+ {
+ 	int i, fd;
++	char *tmpname;
+ 
+-	if ((info->name_bitmap
+-	    = (char *)malloc(sizeof(FILENAME_BITMAP))) == NULL) {
++	tmpname = getenv("TMPDIR");
++	if (!tmpname)
++		tmpname = "/tmp";
++
++	if ((info->name_bitmap = (char *)malloc(sizeof(FILENAME_BITMAP) +
++						strlen(tmpname) + 1)) == NULL) {
+ 		ERRMSG("Can't allocate memory for the filename. %s\n",
+ 		    strerror(errno));
+ 		return FALSE;
+ 	}
+-	strcpy(info->name_bitmap, FILENAME_BITMAP);
++	strcpy(info->name_bitmap, tmpname);
++	strcat(info->name_bitmap, "/");
++	strcat(info->name_bitmap, FILENAME_BITMAP);
+ 	if ((fd = mkstemp(info->name_bitmap)) < 0) {
+ 		ERRMSG("Can't open the bitmap file(%s). %s\n",
+ 		    info->name_bitmap, strerror(errno));
+--- kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.h	2010-07-09 13:45:24.000000000 +0800
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/makedumpfile.h	2010-07-09 13:46:54.000000000 +0800
+@@ -230,7 +230,7 @@
+ #define BUFSIZE_FGETS		(1500)
+ #define BUFSIZE_BITMAP		(4096)
+ #define PFN_BUFBITMAP		(BITPERBYTE*BUFSIZE_BITMAP)
+-#define FILENAME_BITMAP		"/tmp/kdump_bitmapXXXXXX"
++#define FILENAME_BITMAP		"kdump_bitmapXXXXXX"
+ #define FILENAME_STDOUT		"STDOUT"
+ 
+ /*

@@ -1,0 +1,39 @@
+Subject: [PATCH 17/18] Fix compilation error in sadump_info.h
+
+This is a backport of
+
+    commit 25ae552899b7e4c6a38409332708f030f345bea5
+    Author: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+    Date:   Mon Jan 16 13:30:44 2012 +0900
+    
+    [PATCH] Fix compilation error in sadump_info.h.
+    
+    When compiling makedumpfile git head or 1.4.1 on s390x, I get the following
+    gcc error:
+    
+    # gcc -g -O2 -Wall -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE
+    -D_LARGEFILE64_SOURCE -DVERSION='"1.4.1"' -DRELEASE_DATE='"6 January 2012"'
+    -D__s390__  print_info.o dwarf_info.o elf_info.o erase_info.o sadump_info.o
+    arch/arm.o arch/x86.o arch/x86_64.o arch/ia64.o arch/ppc64.o arch/s390x.o -o
+    makedumpfile makedumpfile.c -static -ldw -lbz2 -lebl -ldl -lelf -lz
+    In file included from makedumpfile.c:21:0:
+    sadump_info.h:86:1: error: expected identifier or '(' before '{' token
+    sadump_info.h:85:19: warning: 'sadump_num_online_cpus' used but never defined
+    
+    The attached patch fixes this problem.
+    
+    Signed-off-by: Michael Holzheu <holzheu@linux.vnet.ibm.com>
+    Signed-off-by: Suzuki K. Poulose <suzuki@in.ibm.com>
+---
+diff -Nrup kexec-tools-2.0.0.old/makedumpfile-1.3.5/sadump_info.h kexec-tools-2.0.0/makedumpfile-1.3.5/sadump_info.h
+--- kexec-tools-2.0.0.old/makedumpfile-1.3.5/sadump_info.h	2012-04-05 08:24:18.068497691 -0400
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/sadump_info.h	2012-04-05 08:26:51.471564230 -0400
+@@ -82,7 +82,7 @@ static inline int sadump_initialize_bitm
+ 	return FALSE;
+ }
+ 
+-static inline int sadump_num_online_cpus(void);
++static inline int sadump_num_online_cpus(void)
+ {
+ 	return 0;
+ }

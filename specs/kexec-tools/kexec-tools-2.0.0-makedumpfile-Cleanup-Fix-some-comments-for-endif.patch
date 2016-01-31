@@ -1,0 +1,33 @@
+Subject: [PATCH 16/18] Cleanup: Fix some comments for "#endif".
+
+This is a backport of
+
+    commit c06b20eef546f8a8231831a1e579236a2f1ac6af
+    Author: Atsushi Kumagai <kumagai-atsushi@mxc.nes.nec.co.jp>
+    Date:   Thu Dec 22 11:12:06 2011 +0900
+    
+    [PATCH] Cleanup: Fix some comments for "#endif".
+    
+    Signed-off-by: Atsushi Kumagai <kumagai-atsushi@mxc.nes.nec.co.jp>
+---
+diff -Nrup kexec-tools-2.0.0.old/makedumpfile-1.3.5/sadump_info.c kexec-tools-2.0.0/makedumpfile-1.3.5/sadump_info.c
+--- kexec-tools-2.0.0.old/makedumpfile-1.3.5/sadump_info.c	2012-04-05 08:20:01.244497691 -0400
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/sadump_info.c	2012-04-05 08:22:27.341564098 -0400
+@@ -1941,4 +1941,4 @@ DEBUG_MSG("sadump: No PT_LOAD in elfcore
+ 	DEBUG_MSG("sadump: kdump backup region unused\n");
+ }
+ 
+-#endif /* defined(__x86__) && defined(__x86_64__) */
++#endif /* defined(__x86__) || defined(__x86_64__) */
+diff -Nrup kexec-tools-2.0.0.old/makedumpfile-1.3.5/sadump_mod.h kexec-tools-2.0.0/makedumpfile-1.3.5/sadump_mod.h
+--- kexec-tools-2.0.0.old/makedumpfile-1.3.5/sadump_mod.h	2012-04-05 08:20:01.245497581 -0400
++++ kexec-tools-2.0.0/makedumpfile-1.3.5/sadump_mod.h	2012-04-05 08:22:27.342564453 -0400
+@@ -171,7 +171,7 @@ struct sadump_media_header {
+ 
+ #define SADUMP_PF_SECTION_NUM 4096
+ 
+-#endif /* defined(__x86__) && defined(__x86_64__) */
++#endif /* defined(__x86__) || defined(__x86_64__) */
+ 
+ /*
+  * Type of sadump related formats
