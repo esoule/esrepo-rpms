@@ -1,16 +1,12 @@
 Name:           patchelf
-Version:        0.8
-Release:        5%{?dist}
+Version:        0.9
+Release:        1%{?dist}
 Summary:        A utility for patching ELF binaries
 
 Group:          Development/Tools
 License:        GPLv3+
 URL:            http://nixos.org/patchelf.html
-Source0:        http://releases.nixos.org/patchelf/patchelf-%{version}//%{name}-%{version}.tar.bz2
-Patch0:         patchelf-copy-attr.patch
-# Adjust to PIC executables, bug #1239761,
-# <https://github.com/NixOS/patchelf/issues/47>, in upstream after 0.8
-Patch1:         patchelf-0.8-Quick-fix-for-47.patch
+Source0:        http://releases.nixos.org/patchelf/patchelf-%{version}/%{name}-%{version}.tar.bz2
 
 # make check does not work on these architectures: see bug #627370
 ExcludeArch:    ppc ppc64 %{sparc} %{arm}
@@ -19,8 +15,6 @@ BuildRequires:  autoconf
 BuildRequires:  automake
 BuildRequires:  coreutils
 BuildRequires:  gcc
-BuildRequires:  libacl-devel
-BuildRequires:  libattr-devel
 BuildRequires:  make
 
 %description
@@ -30,8 +24,6 @@ of an executable and change the RPATH of an executable or library.
 
 %prep
 %setup -q
-%patch0 -p1 -b .copy-attr
-%patch1 -p1 -b .pie
 
 # package ships elf.h - delete to use glibc-headers one
 rm src/elf.h
@@ -44,19 +36,25 @@ make %{?_smp_mflags}
 make check
 
 %install
+rm -rf %{buildroot}
 make install DESTDIR=%{buildroot}
 
 # the docs get put in a funny place, so delete and include in the
 # standard way in the docs section below
 rm -rf %{buildroot}/usr/share/doc/%{name}
 
+%clean
+rm -rf %{buildroot}
+
 %files
 %{_bindir}/patchelf
 %{_mandir}/man1/patchelf.1*
-%license COPYING
-%doc README
+%doc README COPYING
 
 %changelog
+* Thu Mar 10 2016 Evgueni Souleimanov <esoule@100500.ca> - 0.9-1
+- Update to patchelf-0.9, build on EL6
+
 * Thu Feb 04 2016 Fedora Release Engineering <releng@fedoraproject.org> - 0.8-5
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_24_Mass_Rebuild
 
