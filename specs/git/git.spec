@@ -31,36 +31,56 @@
 
 # Settings for F-19+ and EL-7+
 %if 0%{?fedora} >= 19 || 0%{?rhel} >= 7
+%global bashcomp_pkgconfig  1
+%global bashcompdir         %(pkg-config --variable=completionsdir bash-completion 2>/dev/null)
+%global bashcomproot        %(dirname %{bashcompdir} 2>/dev/null)
 %global desktop_vendor_tag  0
 %global gnome_keyring       1
 %global use_new_rpm_filters 1
 %global use_systemd         1
-%global use_new_bash_comp   1
 %else
+%global bashcomp_pkgconfig  0
+%global bashcompdir         %{_sysconfdir}/bash_completion.d
+%global bashcomproot        %{bashcompdir}
 %global desktop_vendor_tag  1
 %global gnome_keyring       0
 %global use_new_rpm_filters 0
 %global use_systemd         0
-%global use_new_bash_comp   0
 %endif
 
 Name:           git
-Version:        2.3.6
-Release:        1.1.1%{?dist}
+Version:        2.8.0
+Release:        1%{?dist}
 Summary:        Fast Version Control System
 License:        GPLv2
 Group:          Development/Tools
-URL:            http://git-scm.com/
-Source0:        http://www.kernel.org/pub/software/scm/git/%{name}-%{version}.tar.gz
-Source2:        git-init.el
-Source3:        git.xinetd.in
-Source4:        git.conf.httpd
-Source5:        git-gui.desktop
-Source6:        gitweb.conf.in
-Source10:       http://www.kernel.org/pub/software/scm/git/%{name}-manpages-%{version}.tar.gz
-Source11:       http://www.kernel.org/pub/software/scm/git/%{name}-htmldocs-%{version}.tar.gz
-Source12:       git@.service
-Source13:       git.socket
+URL:            https://git-scm.com/
+Source0:        https://www.kernel.org/pub/software/scm/git/%{name}-%{version}.tar.xz
+Source1:        https://www.kernel.org/pub/software/scm/git/%{name}-htmldocs-%{version}.tar.xz
+Source2:        https://www.kernel.org/pub/software/scm/git/%{name}-manpages-%{version}.tar.xz
+Source3:        https://www.kernel.org/pub/software/scm/git/%{name}-%{version}.tar.sign
+Source4:        https://www.kernel.org/pub/software/scm/git/%{name}-htmldocs-%{version}.tar.sign
+Source5:        https://www.kernel.org/pub/software/scm/git/%{name}-manpages-%{version}.tar.sign
+
+# Junio C Hamano's key is used to sign git releases, it can be found in the
+# junio-gpg-pub tag within git.
+#
+# (Note that the tagged blob in git contains a version of the key with an
+# expired signing subkey.  The subkey expiration has been extended on the
+# public keyservers, but the blob in git has not been updated.)
+#
+# https://git.kernel.org/cgit/git/git.git/tag/?h=junio-gpg-pub
+# https://git.kernel.org/cgit/git/git.git/blob/?h=junio-gpg-pub&id=7214aea37915ee2c4f6369eb9dea520aec7d855b
+Source9:        gpgkey-junio.asc
+
+# Local sources begin at 10 to allow for additional future upstream sources
+Source10:       git-init.el
+Source11:       git.xinetd.in
+Source12:       git.conf.httpd
+Source13:       git-gui.desktop
+Source14:       gitweb.conf.in
+Source15:       git@.service
+Source16:       git.socket
 Patch0:         git-1.8-gitweb-home-link.patch
 # https://bugzilla.redhat.com/490602
 Patch1:         git-cvsimport-Ignore-cvsps-2.2b1-Branches-output.patch
@@ -77,6 +97,7 @@ BuildRequires:  desktop-file-utils
 BuildRequires:  emacs
 BuildRequires:  expat-devel
 BuildRequires:  gettext
+BuildRequires:  gnupg2
 BuildRequires:  %{libcurl_devel}
 %if %{gnome_keyring}
 BuildRequires:  libgnome-keyring-devel
@@ -84,7 +105,7 @@ BuildRequires:  libgnome-keyring-devel
 BuildRequires:  pcre-devel
 BuildRequires:  openssl-devel
 BuildRequires:  zlib-devel >= 1.2
-%if %{use_new_bash_comp}
+%if %{bashcomp_pkgconfig}
 BuildRequires:  pkgconfig(bash-completion)
 %endif
 %if %{use_systemd}
@@ -92,20 +113,27 @@ BuildRequires:  pkgconfig(bash-completion)
 BuildRequires:  systemd
 %endif
 
-Requires:       less
-Requires:       openssh-clients
+Requires:       git-core = %{version}-%{release}
+Requires:       git-core-doc = %{version}-%{release}
 Requires:       perl(Error)
 %if ! %{defined perl_bootstrap}
 Requires:       perl(Term::ReadKey)
 %endif
 Requires:       perl-Git = %{version}-%{release}
-Requires:       rsync
-Requires:       zlib >= 1.2
 
-Provides:       git-core = %{version}-%{release}
-%if 0%{?rhel} && 0%{?rhel} <= 5
-Obsoletes:      git-core <= 1.5.4.3
+%if 0%{?fedora} >= 16 || 0%{?rhel} >= 7
+Requires:       emacs-filesystem >= %{_emacs_version}
+# These can be removed in Fedora 26
+Obsoletes:      emacs-git <= 2.4.5
+Obsoletes:      emacs-git-el <= 2.4.5
+Provides:       emacs-git <= 2.4.5
+Provides:       emacs-git-el <= 2.4.5
 %endif
+
+#Provides:       git-core = %{version}-%{release}
+#%if 0%{?rhel} && 0%{?rhel} <= 5
+#Obsoletes:      git-core <= 1.5.4.3
+#%endif
 
 # Obsolete git-arch
 Obsoletes:      git-arch < %{version}-%{release}
@@ -115,9 +143,9 @@ Git is a fast, scalable, distributed revision control system with an
 unusually rich command set that provides both high-level operations
 and full access to internals.
 
-The git rpm installs the core tools with minimal dependencies.  To
-install all git packages, including tools for integrating with other
-SCMs, install the git-all meta-package.
+The git rpm installs common set of tools which are usually using with
+small amount of dependencies. To install all git packages, including
+tools for integrating with other SCMs, install the git-all meta-package.
 
 %package all
 Summary:        Meta-package to pull in all git tools
@@ -136,7 +164,9 @@ Requires:       perl-Git = %{version}-%{release}
 %if ! %{defined perl_bootstrap}
 Requires:       perl(Term::ReadKey)
 %endif
+%if 0%{?rhel} && 0%{?rhel} <= 6
 Requires:       emacs-git = %{version}-%{release}
+%endif
 Obsoletes:      git <= 1.5.4.3
 
 %description all
@@ -146,14 +176,39 @@ and full access to internals.
 
 This is a dummy package which brings in all subpackages.
 
+%package core
+Summary:        Core package of git with minimal funcionality
+Group:          Development/Tools
+Requires:       less
+Requires:       openssh-clients
+Requires:       rsync
+Requires:       zlib >= 1.2
+%description core
+Git is a fast, scalable, distributed revision control system with an
+unusually rich command set that provides both high-level operations
+and full access to internals.
+
+The git-core rpm installs really the core tools with minimal
+dependencies. Install git package for common set of tools.
+To install all git packages, including tools for integrating with
+other SCMs, install the git-all meta-package.
+
+%package core-doc
+Summary:        Documentation files for git-core
+Group:          Development/Tools
+Requires:       git-core = %{version}-%{release}
+
+%description core-doc
+Documentation files for git-core package including man pages.
+
 %package daemon
 Summary:        Git protocol dæmon
 Group:          Development/Tools
 Requires:       git = %{version}-%{release}
 %if %{use_systemd}
-Requires:	systemd
+Requires:       systemd
 Requires(post): systemd
-Requires(preun): systemd
+Requires(preun):  systemd
 Requires(postun): systemd
 %else
 Requires:       xinetd
@@ -187,6 +242,7 @@ Requires:       git = %{version}-%{release}
 Summary:        Git tools for importing Subversion repositories
 Group:          Development/Tools
 Requires:       git = %{version}-%{release}, subversion
+Requires:       perl-Digest-MD5
 %if ! %{defined perl_bootstrap}
 Requires:       perl(Term::ReadKey)
 %endif
@@ -201,7 +257,7 @@ BuildArch:      noarch
 %endif
 Requires:       git = %{version}-%{release}, cvs
 Requires:       cvsps
-Requires:	perl-DBD-SQLite
+Requires:       perl-DBD-SQLite
 %description cvs
 Git tools for importing CVS repositories.
 
@@ -264,6 +320,7 @@ Requires:       perl(:MODULE_COMPAT_%(eval "`%{__perl} -V:version`"; echo $versi
 %description -n perl-Git-SVN
 Perl interface to Git.
 
+%if 0%{?rhel} && 0%{?rhel} <= 6
 %package -n emacs-git
 Summary:        Git version control system support for Emacs
 Group:          Applications/Editors
@@ -288,8 +345,24 @@ Requires:       emacs-git = %{version}-%{release}
 
 %description -n emacs-git-el
 %{summary}.
+%endif
 
 %prep
+# Verify GPG signatures
+gpghome="$(mktemp -qd)" # Ensure we don't use any existing gpg keyrings
+key="%{SOURCE9}"
+# Ignore noisy output from GnuPG 2.0, used on EL <= 7
+# https://bugs.gnupg.org/gnupg/issue1555
+gpg2 --dearmor --quiet --batch --yes $key >/dev/null
+for src in %{SOURCE0} %{SOURCE1} %{SOURCE2}; do
+    # Upstream signs the uncompressed tarballs
+    tar=${src/%.xz/}
+    xz -dc $src > $tar
+    gpgv2 --homedir "$gpghome" --quiet --keyring $key.gpg $tar.sign $tar
+    rm -f $tar
+done
+rm -rf "$gpghome" # Cleanup tmp gpg home dir
+
 %setup -q
 %patch0 -p1
 %patch1 -p1
@@ -299,8 +372,8 @@ Requires:       emacs-git = %{version}-%{release}
 
 %if %{use_prebuilt_docs}
 mkdir -p prebuilt_docs/{html,man}
-tar xf %{SOURCE10} -C prebuilt_docs/man
-tar xf %{SOURCE11} -C prebuilt_docs/html
+xz -dc %{SOURCE1} | tar xf - -C prebuilt_docs/html
+xz -dc %{SOURCE2} | tar xf - -C prebuilt_docs/man
 # Remove non-html files
 find prebuilt_docs/html -type f ! -name '*.html' | xargs rm
 find prebuilt_docs/html -type d | xargs rmdir --ignore-fail-on-non-empty
@@ -395,7 +468,7 @@ for elc in %{buildroot}%{elispdir}/*.elc ; do
     install -pm 644 contrib/emacs/$(basename $elc .elc).el \
     %{buildroot}%{elispdir}
 done
-install -Dpm 644 %{SOURCE2} \
+install -Dpm 644 %{SOURCE10} \
     %{buildroot}%{_emacs_sitestartdir}/git-init.el
 
 %if %{gnome_keyring}
@@ -409,11 +482,14 @@ make -C contrib/subtree install
 %if ! %{use_prebuilt_docs}
 make -C contrib/subtree install-doc
 %endif
+# it's ugly hack, but this file don't need to be copied to this directory
+# it's already part of git-core-doc and it's alone here
+rm -f %{buildroot}%{?_pkgdocdir}%{!?_pkgdocdir:%{_docdir}/%{name}-%{version}}/git-subtree.html
 
 mkdir -p %{buildroot}%{_sysconfdir}/httpd/conf.d
-install -pm 0644 %{SOURCE4} %{buildroot}%{_sysconfdir}/httpd/conf.d/git.conf
+install -pm 0644 %{SOURCE12} %{buildroot}%{_sysconfdir}/httpd/conf.d/git.conf
 sed "s|@PROJECTROOT@|%{_var}/lib/git|g" \
-    %{SOURCE6} > %{buildroot}%{_sysconfdir}/gitweb.conf
+    %{SOURCE14} > %{buildroot}%{_sysconfdir}/gitweb.conf
 
 find %{buildroot} -type f -name .packlist -exec rm -f {} ';'
 find %{buildroot} -type f -name '*.bs' -empty -exec rm -f {} ';'
@@ -439,7 +515,7 @@ rm -rf %{buildroot}%{_mandir}
 mkdir -p %{buildroot}%{_var}/lib/git
 %if %{use_systemd}
 mkdir -p %{buildroot}%{_unitdir}
-cp -a %{SOURCE12} %{SOURCE13} %{buildroot}%{_unitdir}
+cp -a %{SOURCE15} %{SOURCE16} %{buildroot}%{_unitdir}
 %else
 mkdir -p %{buildroot}%{_sysconfdir}/xinetd.d
 # On EL <= 5, xinetd does not enable IPv6 by default
@@ -451,18 +527,12 @@ perl -p \
 %if %{enable_ipv6}
     -e "s|^}|$enable_ipv6\n$&|;" \
 %endif
-    %{SOURCE3} > %{buildroot}%{_sysconfdir}/xinetd.d/git
+    %{SOURCE11} > %{buildroot}%{_sysconfdir}/xinetd.d/git
 %endif
 
 # Setup bash completion
-%if %{use_new_bash_comp}
-bashcompdir=$(pkg-config --variable=completionsdir bash-completion)
-install -Dpm 644 contrib/completion/git-completion.bash %{buildroot}$bashcompdir/git
-ln -s git %{buildroot}$bashcompdir/gitk
-%else
-mkdir -p %{buildroot}%{_sysconfdir}/bash_completion.d
-install -pm 644 contrib/completion/git-completion.bash %{buildroot}%{_sysconfdir}/bash_completion.d/git
-%endif
+install -Dpm 644 contrib/completion/git-completion.bash %{buildroot}%{bashcompdir}/git
+ln -s git %{buildroot}%{bashcompdir}/gitk
 
 # Install tcsh completion
 mkdir -p %{buildroot}%{_datadir}/git-core/contrib/completion
@@ -487,7 +557,7 @@ desktop-file-install \
 %if %{desktop_vendor_tag}
   --vendor fedora \
 %endif
-  --dir=%{buildroot}%{_datadir}/applications %{SOURCE5}
+  --dir=%{buildroot}%{_datadir}/applications %{SOURCE13}
 
 # find translations
 %find_lang %{name} %{name}.lang
@@ -496,9 +566,17 @@ cat %{name}.lang >> bin-man-doc-files
 # quiet some rpmlint complaints
 chmod -R g-w %{buildroot}
 find %{buildroot} -name git-mergetool--lib | xargs chmod a-x
-rm -f {Documentation/technical,contrib/emacs,contrib/credential/gnome-keyring}/.gitignore
+# rm -f {Documentation/technical,contrib/emacs,contrib/credential/gnome-keyring}/.gitignore
+# These files probably are not needed
+find . -name .gitignore -delete
 chmod a-x Documentation/technical/api-index.sh
 find contrib -type f | xargs chmod -x
+
+# Split core files
+not_core_re="git-(add--interactive|am|difftool|instaweb|relink|request-pull|send-mail|submodule)|gitweb|prepare-commit-msg|pre-rebase"
+grep -vE "$not_core_re|\/man\/" bin-man-doc-files > bin-files-core
+grep -vE "$not_core_re" bin-man-doc-files | grep "\/man\/" > man-doc-files-core
+grep -E "$not_core_re" bin-man-doc-files > bin-man-doc-git-files
 
 
 %clean
@@ -515,16 +593,36 @@ rm -rf %{buildroot}
 %systemd_postun_with_restart git@.service
 %endif
 
-%files -f bin-man-doc-files
+%files -f bin-man-doc-git-files
 %defattr(-,root,root)
+%if 0%{?fedora} >= 16 || 0%{?rhel} >= 7
+%{elispdir}
+%{_emacs_sitestartdir}/git-init.el
+%endif
+%{_datadir}/git-core/contrib/hooks/update-paranoid
+%{_datadir}/git-core/contrib/hooks/setgitperms.perl
+#%{_datadir}/git-core/*
+#%doc Documentation/*.txt
+#%{!?_without_docs: %doc Documentation/*.html}
+#%{!?_without_docs: %doc Documentation/howto/* Documentation/technical/*}
+
+%files core -f bin-files-core
+%defattr(-,root,root)
+%{!?_licensedir:%global license %doc}
+%license COPYING
+# exlude is best way here because of troubels with symlinks inside git-core/
+%exclude %{_datadir}/git-core/contrib/hooks/update-paranoid
+%exclude %{_datadir}/git-core/contrib/hooks/setgitperms.perl
+%{bashcomproot}
 %{_datadir}/git-core/
-%doc README COPYING Documentation/*.txt Documentation/RelNotes contrib/
+
+%files core-doc -f man-doc-files-core
+%defattr(-,root,root)
+%doc README.md Documentation/*.txt Documentation/RelNotes contrib/
 %{!?_without_docs: %doc Documentation/*.html Documentation/docbook-xsl.css}
 %{!?_without_docs: %doc Documentation/howto Documentation/technical}
-%if %{use_new_bash_comp}
-%{_datadir}/bash-completion/
-%else
-%{_sysconfdir}/bash_completion.d
+%if ! %{use_prebuilt_docs}
+%{!?_without_docs: %doc contrib/subtree/git-subtree.html}
 %endif
 
 
@@ -546,7 +644,9 @@ rm -rf %{buildroot}
 %files cvs
 %defattr(-,root,root)
 %doc Documentation/*git-cvs*.txt
+%if "%{gitcoredir}" != "%{_bindir}"
 %{_bindir}/git-cvsserver
+%endif
 %{gitcoredir}/*cvs*
 %{!?_without_docs: %{_mandir}/man1/*cvs*.1*}
 %{!?_without_docs: %doc Documentation/*git-cvs*.html }
@@ -586,6 +686,7 @@ rm -rf %{buildroot}
 %defattr(-,root,root)
 %{!?_without_docs: %{_mandir}/man3/*Git*SVN*.3pm*}
 
+%if 0%{?rhel} && 0%{?rhel} <= 6
 %files -n emacs-git
 %defattr(-,root,root)
 %doc contrib/emacs/README
@@ -596,6 +697,7 @@ rm -rf %{buildroot}
 %files -n emacs-git-el
 %defattr(-,root,root)
 %{elispdir}/*.el
+%endif
 
 %files daemon
 %defattr(-,root,root)
@@ -623,8 +725,133 @@ rm -rf %{buildroot}
 # No files for you!
 
 %changelog
-* Sun May 03 2015 Evgueni Souleimanov <esoule@100500.ca> - 2.3.6-1.1.1
-- Install bash completion to pkgconfig completionsdir only on EL7+
+* Tue Mar 29 2016 Neal Gompa <ngompa13{%}gmail{*}com> - 2.8.0-1
+- Update to 2.8.0
+- Use license macro for COPYING
+
+* Sun Mar 27 2016 Todd Zullinger <tmz@pobox.com> - 2.7.4-2
+- Use https for URL / Source and smaller tar.xz files
+- Check upstream GPG signatures in %%prep
+
+* Tue Mar 22 2016 Konrad Scherer <Konrad.Scherer@windriver.com>
+- Workaround missing git subtree documentation in prebuilt docs (bug 1320210)
+- Only add git-cvsserver binary once if the core dir matches the bin dir as it
+  does on el5 (bug 1320210)
+
+* Tue Mar 22 2016 Todd Zullinger <tmz@pobox.com>
+- Conditionalize bash-completion pkg-config usage for EL <= 6 (bug 1320210)
+
+* Fri Mar 18 2016 David Woodhouse <dwmw2@infradead.org> - 2.7.4-1
+- Update to 2.7.4 (for CVE-2016-2315, CVE-2016-2324)
+  Resolves: #1318220
+
+* Mon Mar 14 2016 Jon Ciesla <limburgher@gmail.com> - 2.7.3-1
+- Update to 2.7.3.
+
+* Tue Feb 23 2016 Jon Ciesla <limburgher@gmail.com> - 2.7.2-1
+- Update to 2.7.2.
+
+* Sat Feb 06 2016 Jon Ciesla <limburgher@gmail.com> - 2.7.1-1
+- Update to 2.7.1.
+
+* Thu Feb 04 2016 Petr Stodulka <pstodulk@redhat.com> - 2.7.0-3
+- remove all '.gitignore' files from packages
+
+* Wed Feb 03 2016 Fedora Release Engineering <releng@fedoraproject.org> - 2.7.0-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_24_Mass_Rebuild
+
+* Tue Jan 05 2016 Jon Ciesla <limburgher@gmail.com> - 2.7.0-1
+- Update to 2.7.0.
+- Infinite loop patch appears obsolete.
+
+* Wed Dec 09 2015 Jon Ciesla <limburgher@gmail.com> - 2.6.4-1
+- Update to 2.6.4.
+
+* Fri Nov 27 2015 Petr Stodulka <pstodulk@redhat.com> - 2.6.3-2
+- found 2 perl scripts in git-core, move them to git package
+  (#1284688)
+
+* Fri Nov 06 2015 Jon Ciesla <limburgher@gmail.com> - 2.6.3-1
+- Update to 2.6.3.
+
+* Tue Nov 03 2015 Petr Stodulka <pstodulk@gmail.com> - 2.6.2-2
+- provides failback for the macro _pkgdocdir (#1277550)
+
+* Sat Oct 17 2015 Jon Ciesla <limburgher@gmail.com> - 2.6.2-1
+- Update to 2.6.2.
+
+* Tue Oct 06 2015 Jon Ciesla <limburgher@gmail.com> - 2.6.1-1
+- Update to 2.6.1.
+
+* Tue Sep 29 2015 Jon Ciesla <limburgher@gmail.com> - 2.6.0-1
+- Update to 2.6.0.
+
+* Fri Sep 18 2015 Jon Ciesla <limburgher@gmail.com> - 2.5.3-1
+- Update to 2.5.3.
+
+* Fri Sep 11 2015 Jon Ciesla <limburgher@gmail.com> - 2.5.2-1
+- Update to 2.5.2.
+
+* Sat Aug 29 2015 Petr Stodulka <pstodulk@redhat.com> - 2.5.1-1
+- Update to 2.5.1
+
+* Tue Jul 28 2015 Jon Ciesla <limburgher@gmail.com> - 2.5.0-1
+- Update to 2.5.0.
+
+* Thu Jul 16 2015 Petr Stodulka <pstodulk@redhat.com> - 2.4.6-1
+- New upstream release 2.4.6
+
+* Tue Jul  7 2015 Jonathan Underwood <jonathan.underwood@gmail.com> - 2.4.5-2
+- Comply with modern Emacs packaging guidelines on recent Fedora
+  No longer split out emacs-git and emacs-git-el sub-packages on recent Fedora
+  Require emacs-filesystem on recent Fedora (#1234552)
+
+* Fri Jun 26 2015 Jon Ciesla <limburgher@gmail.com> - 2.4.5-1
+- Update to 2.4.5.
+
+* Mon Jun 22 2015  Petr Stodulka <pstodulk@gmail.com> - 2.4.4-2
+- git-svn - added requires for perl-Digest-MD5 (#1218176)
+- solve troubles with infinite loop due to broken symlink (probably
+  shouldn't be problem here, but it's reproducible manually)
+  (#1204193)
+
+* Tue Jun 16 2015 Jon Ciesla <limburgher@gmail.com> - 2.4.4-1
+- Update to 2.4.4.
+
+* Wed Jun 10 2015 Jitka Plesnikova <jplesnik@redhat.com> - 2.4.3-4
+- Perl 5.22 re-rebuild of bootstrapped packages
+
+* Tue Jun 09 2015 Jitka Plesnikova <jplesnik@redhat.com> - 2.4.3-3
+- Perl 5.22 rebuild
+
+* Mon Jun 08 2015 Petr Stodulka <pstodulk@redhat.com> - 2.4.3-2
+- separate documentation files from git-core package to git-core-doc
+  including core man pages
+
+* Sat Jun 06 2015 Jon Ciesla <limburgher@gmail.com> - 2.4.3-1
+- Update to 2.4.3.
+
+* Fri Jun 05 2015 Jitka Plesnikova <jplesnik@redhat.com>
+- Perl 5.22 rebuild
+
+* Wed Jun 03 2015 Petr Stodulka <pstodulk@redhat.com> - 2.4.2-2
+- split create subpackage git-core (perl-less) from git package
+- git package requires git-core and it has same tool set as
+  before
+- relevant docs are part of git-core package too
+- removed proved and obsoletes in git for git-core
+
+* Tue May 26 2015 Jon Ciesla <limburgher@gmail.com> - 2.4.2-1
+- Update to 2.4.2.
+
+* Thu May 14 2015 Jon Ciesla <limburgher@gmail.com> - 2.4.1-1
+- Update to 2.4.1.
+
+* Fri May 01 2015 Jon Ciesla <limburgher@gmail.com> - 2.4.0-1
+- Update to 2.4.0.
+
+* Tue Apr 28 2015 Jon Ciesla <limburgher@gmail.com> - 2.3.7-1
+- Update to 2.3.7.
 
 * Wed Apr 22 2015 Jon Ciesla <limburgher@gmail.com> - 2.3.6-1
 - Update to 2.3.6.
