@@ -50,7 +50,7 @@
 
 Name:           git
 Version:        2.8.0
-Release:        1%{?dist}
+Release:        1.101%{?dist}
 Summary:        Fast Version Control System
 License:        GPLv2
 Group:          Development/Tools
@@ -242,7 +242,7 @@ Requires:       git = %{version}-%{release}
 Summary:        Git tools for importing Subversion repositories
 Group:          Development/Tools
 Requires:       git = %{version}-%{release}, subversion
-Requires:       perl-Digest-MD5
+Requires:       perl(Digest::MD5)
 %if ! %{defined perl_bootstrap}
 Requires:       perl(Term::ReadKey)
 %endif
@@ -257,7 +257,7 @@ BuildArch:      noarch
 %endif
 Requires:       git = %{version}-%{release}, cvs
 Requires:       cvsps
-Requires:       perl-DBD-SQLite
+Requires:       perl(DBD::SQLite)
 %description cvs
 Git tools for importing CVS repositories.
 
@@ -725,6 +725,9 @@ rm -rf %{buildroot}
 # No files for you!
 
 %changelog
+* Sun Apr 3 2016 Evgueni Souleimanov <esoule@100500.ca> - 2.8.0-1.101
+- fix broken installation on EL6 due to perl-Digest-MD5 dependency
+
 * Tue Mar 29 2016 Neal Gompa <ngompa13{%}gmail{*}com> - 2.8.0-1
 - Update to 2.8.0
 - Use license macro for COPYING
