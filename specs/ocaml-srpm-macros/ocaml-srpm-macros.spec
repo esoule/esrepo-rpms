@@ -8,11 +8,15 @@
 #
 # See also: https://bugzilla.redhat.com/show_bug.cgi?id=1087794
 
+%if 0%{?rhel} && 0%{?rhel} <= 6
+%global macros_dir %{_sysconfdir}/rpm
+%else
 %global macros_dir %{_rpmconfigdir}/macros.d
+%endif
 
 Name:           ocaml-srpm-macros
 Version:        2
-Release:        3%{?dist}
+Release:        3.101%{?dist}
 
 Summary:        OCaml architecture macros
 License:        GPLv2+
@@ -45,6 +49,9 @@ install -m 0644 %{SOURCE0} $RPM_BUILD_ROOT%{macros_dir}/macros.ocaml-srpm
 
 
 %changelog
+* Sun Apr 10 2016 Evgueni Souleimanov <esoule@100500.ca> - 2-3.101
+- Add EL6 support
+
 * Wed Jun 17 2015 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2-3
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_23_Mass_Rebuild
 
