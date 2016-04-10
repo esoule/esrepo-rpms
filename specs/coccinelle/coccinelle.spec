@@ -135,8 +135,25 @@ done
 
 
 %build
+%configure --enable-release=yes    \
+    --enable-dynlink=yes    \
+    --enable-menhirLib=yes    \
+    --enable-parmap=no    \
+    --enable-ocaml=yes    \
+    --enable-python=yes    \
+    --enable-pycaml=no    \
+    --enable-camlp4=yes    \
+    --enable-pcre-syntax=yes    \
+    --enable-pcre=yes    \
+    --enable-opt=yes    \
+    --without-pkg-config    \
+    --with-ocamllex=%{_bindir}/ocamllex    \
+    --with-ocamlyacc=%{_bindir}/ocamlyacc    \
+    --with-ocamlfind=%{_bindir}/ocamlfind    \
+    --with-ocamlprof=%{_bindir}/ocamlprof    \
+    --with-menhir=%{_bindir}/menhir    \
+    --without-pdflatex
 
-%configure --enable-release=yes --with-menhir=%{_bindir}/menhir
 %{__sed} -i \
   -e 's,LIBDIR=.*,LIBDIR=%{_libdir},' \
   -e 's,MANDIR=.*,MANDIR=%{_mandir},' \
