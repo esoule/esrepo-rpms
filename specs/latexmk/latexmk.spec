@@ -1,6 +1,6 @@
 Name:           latexmk
 Version:        4.42
-Release:        2%{?dist}
+Release:        2.101%{?dist}
 Summary:        A make-like utility for LaTeX files
 
 %global upstreamver %(sed 's/\\.//' <<< %{version})
@@ -18,7 +18,12 @@ Source2:        latexmk-README.fedora
 Patch0:         latexmk-conf.patch
 BuildArch:      noarch
 
-Requires:       tex-latex-bin, ghostscript, xdg-utils
+%if 0%{?fedora} >= 19
+Requires:       tex-latex-bin
+%else
+Requires:       texlive-latex
+%endif
+Requires:       ghostscript, xdg-utils
 
 %description
 Latexmk is a perl script for running LaTeX the correct number of times to
@@ -60,6 +65,9 @@ install -m 0644 -p %{SOURCE1} $RPM_BUILD_ROOT%{_sysconfdir}
 %license COPYING
 
 %changelog
+* Sun Apr 10 2016 Evgueni Souleimanov <esoule@100500.ca> - 4.42-2.101
+- require texlive-latex on EL6
+
 * Wed Jun 17 2015 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 4.42-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_23_Mass_Rebuild
 
