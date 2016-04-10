@@ -2,7 +2,7 @@
 
 Name:           ocaml-findlib
 Version:        1.5.5
-Release:        4%{?dist}
+Release:        4.101%{?dist}
 Summary:        Objective CAML package manager and build helper
 License:        BSD
 
@@ -16,6 +16,7 @@ BuildRequires:  ocaml >= 4.02.0
 BuildRequires:  ocaml-camlp4-devel
 #BuildRequires:  ocaml-labltk-devel
 BuildRequires:  ocaml-compiler-libs
+BuildRequires:  ocaml-labltk-devel
 BuildRequires:  ocaml-ocamldoc
 BuildRequires:  m4, ncurses-devel
 BuildRequires:  gawk
@@ -99,6 +100,9 @@ mv $RPM_BUILD_ROOT/$RPM_BUILD_ROOT%{_bindir}/* $RPM_BUILD_ROOT%{_bindir}
 
 
 %changelog
+* Sun Apr 10 2016 Evgueni Souleimanov <esoule@100500.ca> - 1.5.5-4.101
+- add ocaml-labltk-devel build dependency
+
 * Wed Jun 24 2015 Richard W.M. Jones <rjones@redhat.com> - 1.5.5-4
 - ocaml-4.02.2 final rebuild.
 
