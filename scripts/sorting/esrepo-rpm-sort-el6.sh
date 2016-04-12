@@ -13,6 +13,9 @@ function guess_repo_name()
         ccache-*|cppunit*|firstinst*|freetype-*|emacs-git-*|git-*|gitk-*|gitweb-*|perl-Git-*|livesys*|minicom-*|squashfs-tools-*|wine-*|vim-*|wireshark-*)
             repo_name=extras
             ;;
+        coccinelle-*|hevea-*|latexmk-*|ocaml-*)
+            repo_name=extras
+            ;;
         cproto*|keepalived*|quilt*|rtems-4.6ng6-*|rtems-4.6ng10-*|rtems-4.6ng11-*)
             repo_name=testing
             ;;
