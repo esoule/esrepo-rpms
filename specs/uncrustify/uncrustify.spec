@@ -1,6 +1,6 @@
 Name:		uncrustify
 Version:	0.62
-Release:	1%{?dist}
+Release:	1.101%{?dist}
 Summary:	Reformat Source
 
 Group:		Development/Tools
@@ -26,6 +26,11 @@ mkdir -p $RPM_BUILD_ROOT/%{_mandir}/man1
 install -m644 man/uncrustify.1 $RPM_BUILD_ROOT/%{_mandir}/man1
 
 
+%check
+make check
+cat ./run_tests.sh.log || :
+
+
 %files
 # FIXME: https://github.com/uncrustify/uncrustify/issues/383
 %doc COPYING AUTHORS NEWS
@@ -36,6 +41,9 @@ install -m644 man/uncrustify.1 $RPM_BUILD_ROOT/%{_mandir}/man1
 
 
 %changelog
+* Sun May 08 2016 Evgueni Souleimanov <esoule@100500.ca> - 0.62-1.101
+- Run tests right after build
+
 * Sat Mar 26 2016 Michael Catanzaro <mcatanzaro@gnome.org> - 0.62-1
 - Update to 0.62
 
