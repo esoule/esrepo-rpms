@@ -10,6 +10,9 @@ function guess_repo_name()
 	fsarchiver-*|coan-*|k4dirstat-*|krusader-*|rtems-4.6au-*|rtems-4.6-*|mtd-utils-*|unifdef-*|os-tweaks*|ttt-*|xca*|esrepo-release-*)
 		repo_name=main
 		;;
+	bcpp-*|uncrustify*)
+		repo_name=main
+		;;
 	ccache-*|cppunit*|firstinst*|freetype-*|emacs-git-*|git-*|gitk-*|gitweb-*|perl-Git-*|livesys*|minicom-*|squashfs-tools-*|wine-*|vim-*|wireshark-*)
 		repo_name=extras
 		;;
