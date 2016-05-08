@@ -1,12 +1,12 @@
 Name:		uncrustify
-Version:	0.60
-Release:	9%{?dist}
+Version:	0.62
+Release:	1%{?dist}
 Summary:	Reformat Source
 
 Group:		Development/Tools
 License:	GPLv2
 URL:		http://uncrustify.sourceforge.net/
-Source0:	http://prdownloads.sourceforge.net/uncrustify/uncrustify-%{version}.tar.gz
+Source0:	https://prdownloads.sourceforge.net/uncrustify/uncrustify-%{version}.tar.gz
 BuildRequires:	gcc gcc-c++ libstdc++
 
 %description
@@ -27,7 +27,8 @@ install -m644 man/uncrustify.1 $RPM_BUILD_ROOT/%{_mandir}/man1
 
 
 %files
-%doc COPYING AUTHORS README NEWS
+# FIXME: https://github.com/uncrustify/uncrustify/issues/383
+%doc COPYING AUTHORS NEWS
 %doc documentation
 %{_bindir}/uncrustify
 %{_datadir}/uncrustify
@@ -35,6 +36,12 @@ install -m644 man/uncrustify.1 $RPM_BUILD_ROOT/%{_mandir}/man1
 
 
 %changelog
+* Sat Mar 26 2016 Michael Catanzaro <mcatanzaro@gnome.org> - 0.62-1
+- Update to 0.62
+
+* Fri Feb 05 2016 Fedora Release Engineering <releng@fedoraproject.org> - 0.60-10
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_24_Mass_Rebuild
+
 * Fri Jun 19 2015 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 0.60-9
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_23_Mass_Rebuild
 
