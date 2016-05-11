@@ -1,6 +1,9 @@
-Name:           cppunit
+%global origname		cppunit
+%global apiversion		1.13
+
+Name:           cppunit113
 Version:        1.13.2
-Release:        17%{?dist}
+Release:        18%{?dist}
 Summary:        C++ unit testing framework
 
 Group:          Development/Libraries
@@ -14,6 +17,8 @@ Patch0:         cppunit-1.12.0-nolibdir.patch
 Patch2:         cppunit-warnings-sf2912630.patch
 
 BuildRequires:  doxygen, graphviz
+Provides:       %{origname} = %{version}-%{release}
+Provides:       %{origname}%{?_isa} = %{version}-%{release}
 
 %description
 CppUnit is the C++ port of the famous JUnit framework for unit testing.
@@ -27,7 +32,10 @@ This is the LibreOffice-maintained version.
 Summary:        Libraries and headers for cppunit development
 Group:          Development/Libraries
 Requires:       pkgconfig, automake
-Requires:       %{name} = %{version}-%{release}
+Requires:       %{origname} = %{version}-%{release}
+Requires:       %{origname}%{?_isa} = %{version}-%{release}
+Provides:       %{origname}-devel = %{version}-%{release}
+Provides:       %{origname}-devel%{?_isa} = %{version}-%{release}
 
 %description    devel
 The %{name}-devel package contains libraries and header files for
@@ -37,6 +45,7 @@ developing applications that use cppunit.
 %package        doc
 Summary:        HTML formatted API documention for cppunit
 Group:          Documentation
+BuildArch:      noarch
 
 %description    doc
 The %{name}-doc package contains formatted API documention
@@ -47,15 +56,18 @@ tool.
 %package        demos
 Summary:        Tests and example programs for cppunit
 Group:          Development/Libraries
-Requires:       %{name} = %{version}-%{release}
+Requires:       %{origname} = %{version}-%{release}
+Requires:       %{origname}%{?_isa} = %{version}-%{release}
+Provides:       %{origname}-demos = %{version}-%{release}
+Provides:       %{origname}-demos%{?_isa} = %{version}-%{release}
 
 %description    demos
 The %{name}-demos package contains the example programs that
-were built as part of testing %{name} library.
+were built as part of testing %{origname} library.
 
 
 %prep
-%setup -q
+%setup -q -n %{origname}-%{version}
 %patch0 -p1 -b .nolibdir
 for file in THANKS ChangeLog NEWS; do
         iconv -f latin1 -t utf8 < $file > ${file}.utf8
@@ -100,11 +112,13 @@ rm -rf %{buildroot}%{_datadir}/cppunit
 touch -c -r cppunit-config.in.nolibdir %{buildroot}%{_bindir}/cppunit-config
 
 # install the example executables
-install -d -m 0755 %{buildroot}%{_libexecdir}/cppunit/examples
-install -p -m 0755 ./examples/simple/.libs/simple %{buildroot}%{_libexecdir}/cppunit/examples/
-install -p -m 0755 ./examples/cppunittest/.libs/cppunittestmain %{buildroot}%{_libexecdir}/cppunit/examples/
-install -p -m 0755 ./examples/hierarchy/.libs/hierarchy %{buildroot}%{_libexecdir}/cppunit/examples/
-install -p -m 0755 ./examples/money/.libs/MoneyApp %{buildroot}%{_libexecdir}/cppunit/examples/
+install -d -m 0755 %{buildroot}%{_libexecdir}/cppunit-%{apiversion}/examples
+install -p -m 0755 ./examples/simple/.libs/simple %{buildroot}%{_libexecdir}/cppunit-%{apiversion}/examples/
+install -p -m 0755 ./examples/cppunittest/.libs/cppunittestmain %{buildroot}%{_libexecdir}/cppunit-%{apiversion}/examples/
+install -p -m 0755 ./examples/hierarchy/.libs/hierarchy %{buildroot}%{_libexecdir}/cppunit-%{apiversion}/examples/
+install -p -m 0755 ./examples/money/.libs/MoneyApp %{buildroot}%{_libexecdir}/cppunit-%{apiversion}/examples/
+
+mv %{buildroot}%{_bindir}/DllPlugInTester %{buildroot}%{_bindir}/DllPlugInTester-%{apiversion}
 
 
 %clean
@@ -119,7 +133,7 @@ rm -rf %{buildroot}
 %files
 %defattr(-,root,root,-)
 %doc AUTHORS COPYING NEWS README THANKS ChangeLog TODO BUGS doc/FAQ
-%{_bindir}/DllPlugInTester
+%{_bindir}/DllPlugInTester-%{apiversion}
 %{_libdir}/libcppunit*.so.*
 
 %files devel
@@ -138,10 +152,13 @@ rm -rf %{buildroot}
 
 %files demos
 %defattr(-,root,root,-)
-%{_libexecdir}/cppunit
+%{_libexecdir}/cppunit-%{apiversion}
 
 
 %changelog
+* Tue May 10 2016 Evgueni Souleimanov <esoule@100500.ca> - 1.13.2-18
+- Rename package to cppunit113 for side-by-side install
+
 * Tue May 10 2016 Evgueni Souleimanov <esoule@100500.ca> - 1.13.2-17
 - Clean up spec file
 
