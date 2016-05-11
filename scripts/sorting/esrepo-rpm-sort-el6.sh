@@ -13,6 +13,9 @@ function guess_repo_name()
 	bcpp-*|uncrustify*)
 		repo_name=main
 		;;
+	cppunit113*)
+		repo_name=main
+		;;
 	ccache-*|cppunit*|firstinst*|freetype-*|emacs-git-*|git-*|gitk-*|gitweb-*|perl-Git-*|livesys*|minicom-*|squashfs-tools-*|wine-*|vim-*|wireshark-*)
 		repo_name=extras
 		;;
