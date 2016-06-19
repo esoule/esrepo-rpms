@@ -1,0 +1,44 @@
+From 57504883a8a53887b2d0ac5056337a48c6af9651 Mon Sep 17 00:00:00 2001
+From: Evgueni Souleimanov <esoule@100500.ca>
+Date: Sat, 18 Jun 2016 20:09:34 -0400
+Subject: [PATCH] Revert "symlink /etc/mtab to /proc/self/mounts (#688277)"
+
+Do not leave /etc/mtab symlink to /proc/self/mounts in the
+generated image. This is incompatible with at least two
+packages in EL6:
+
+* anaconda tries to write to /etc/mtab during postinstall
+  stage in liveinst live image installation. When
+  /etc/mtab points to read-only /proc/self/mounts,
+  anaconda returns an error and the image cannot be
+  installed to the hard drive.
+
+* /sbin/mkdumprd from kexec-tools assumes that the output
+  of mount command lists "/" mountpoint only once.
+  When /etc/mtab points to /proc/self/mounts, mount command
+  lists one entry "/" of type "rootfs" and one entry "/"
+  of type ext4 (ext3, or other filesystem). This breaks
+  the generation of initrd image for kdump.
+---
+ imgcreate/creator.py | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/imgcreate/creator.py b/imgcreate/creator.py
+index 500098f..139e630 100644
+--- a/imgcreate/creator.py
++++ b/imgcreate/creator.py
+@@ -540,6 +540,11 @@ class ImageCreator(object):
+         from the install root.
+ 
+         """
++        try:
++            os.unlink(self._instroot + "/etc/mtab")
++        except OSError:
++            pass
++
+         self.__destroy_selinuxfs()
+ 
+         self._undo_bindmounts()
+-- 
+2.8.0
+
