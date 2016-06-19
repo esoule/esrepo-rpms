@@ -5,7 +5,7 @@
 Summary: Tools for building live CDs
 Name: livecd-tools
 Version: 13.4.9
-Release: 1%{?dist}
+Release: 1.101%{?dist}
 Epoch: 1
 License: GPLv2
 Group: System Environment/Base
@@ -16,6 +16,7 @@ URL: http://git.fedorahosted.org/git/livecd
 # make dist
 # scp livecd*.tar.bz2 fedorahosted.org:livecd
 Source0: http://fedorahosted.org/releases/l/i/livecd/%{name}-%{version}.tar.bz2
+Patch100: no-etc-mtab-symlink-688277.patch
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Requires: python-imgcreate = %{epoch}:%{version}-%{release}
 Requires: mkisofs
@@ -61,6 +62,7 @@ like live image or appliances.
 
 %prep
 %setup -q
+%patch100 -p1 -b .noetcmtabsymlink
 
 %build
 make
@@ -94,6 +96,9 @@ rm -rf $RPM_BUILD_ROOT
 %{python_sitelib}/imgcreate/*.pyc
 
 %changelog
+* Sat Jun 18 2016 Evgueni Souleimanov <esoule@100500.ca> 13.4.9-1.101
+- Revert "symlink /etc/mtab to /proc/self/mounts (#688277) (bcl)"
+
 * Tue Nov 10 2015 Brian C. Lane <bcl@redhat.com> 13.4.9-1
 - Version 13.4.9 (bcl)
 - python-imgcreate: remove -f from second lokkit call (#769457) (bcl)
