@@ -28,6 +28,9 @@ function guess_repo_name()
 	fcompat-*)
 		repo_name=testing
 		;;
+	livecd-tools*|python-imgcreate*)
+		repo_name=extras
+		;;
 	crosstool-build-filesystem-*|re*fonts*)
 		repo_name=internal
 		;;
