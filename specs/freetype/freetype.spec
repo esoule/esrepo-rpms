@@ -9,7 +9,7 @@
 Summary: A free and portable font rendering engine
 Name: freetype
 Version: 2.3.11
-Release: 15%{?dist}.1
+Release: 17%{?dist}
 License: FTL or GPLv2+
 Group: System Environment/Libraries
 URL: http://www.freetype.org
@@ -64,7 +64,7 @@ Patch119:  freetype-2.3.11-bdf-overflow.patch
 Patch120:  freetype-2.3.11-array-initialization.patch
 Patch121:  freetype-2.3.11-CVE-2012-5669.patch
 
-# https://bugzilla.redhat.com/show_bug.cgi?id=1197737
+# https://bugzilla.redhat.com/show_bug.cgi?id=1197738
 Patch122:  freetype-2.3.11-CVE-2014-9657.patch
 Patch123:  freetype-2.3.11-CVE-2014-9658.patch
 Patch124:  freetype-2.3.11-ft-strncmp.patch
@@ -85,6 +85,9 @@ Patch138:  freetype-2.3.11-unsigned-long.patch
 Patch139:  freetype-2.3.11-CVE-2014-9674b.patch
 Patch140:  freetype-2.3.11-pcf-read-a.patch
 Patch141:  freetype-2.3.11-pcf-read-b.patch
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=1154625
+Patch142:  freetype-2.3.11-fix-buffer-size.patch
 
 Buildroot: %{_tmppath}/%{name}-%{version}-root-%(%{__id_u} -n)
 
@@ -207,6 +210,7 @@ popd
 %patch139 -p1 -b .CVE-2014-9674b
 %patch140 -p1 -b .pvf-read-a
 %patch141 -p1 -b .pvf-read-b
+%patch142 -p1 -b .fix-buffer-size
 
 %build
 
@@ -336,7 +340,11 @@ rm -rf $RPM_BUILD_ROOT
 %doc docs/tutorial
 
 %changelog
-* Wed Mar  4 2015 Marek Kasik <mkasik@redhat.com> - 2.3.11-15.el6_6.1
+* Tue Dec 15 2015 Felipe Borges <feborges@redhat.com> - 2.3.11-17
+- Fix computation of size of rasterization buffer
+- Resolves: #1154625
+
+* Wed Mar  4 2015 Marek Kasik <mkasik@redhat.com> - 2.3.11-16
 - Fixes CVE-2014-9657
    - Check minimum size of `record_size'.
 - Fixes CVE-2014-9658
@@ -369,7 +377,7 @@ rm -rf $RPM_BUILD_ROOT
    - Fix integer overflow by a broken POST table in resource-fork.
    - Additional overflow check in the summation of POST fragment lengths.
 - Work around behaviour of X11's `pcfWriteFont' and `pcfReadFont' functions
-- Resolves: #1197737
+- Resolves: #1197738
 
 * Thu Jan 24 2013 Marek Kasik <mkasik@redhat.com> 2.3.11-15
 - Fix CVE-2012-5669
