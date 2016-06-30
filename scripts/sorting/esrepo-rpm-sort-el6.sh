@@ -86,7 +86,7 @@ function do_rpm_sort()
 	local arch_name=$1
 	shift
 	case $arch_name in
-	i386|i686|x86_64)
+	i386|x86_64)
 		;;
 	*)
 		echo "Invalid arch $arch_name" >&2
