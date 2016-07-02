@@ -46,11 +46,11 @@ return 0
 }
 
 if [ -z "${TOP_URL}" ] ; then
-    TOP_URL='http://localhost.localdomain/ftp/pub/linux/esrepo'
+    TOP_URL='http://centos.mirror.local/ftp/pub/linux/esrepo'
 fi
 
 if [ -z "${SITE_DIST_STR}" ] ; then
-    SITE_DIST_STR='localhost'
+    SITE_DIST_STR='local'
 fi
 
 echo "# yum repository configuration for esrepo"
