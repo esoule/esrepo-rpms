@@ -1,0 +1,27 @@
+From fbf0b07697b2407fda47312168a7bd5a4ffb09c5 Mon Sep 17 00:00:00 2001
+From: Evgueni Souleimanov <esoule@100500.ca>
+Date: Sat, 2 Jul 2016 16:25:20 -0400
+Subject: [PATCH 10/14] Balance braces cut by ifdefs, part 1
+
+---
+ net_names.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net_names.c b/net_names.c
+index e50cc94..b3512d7 100644
+--- a/net_names.c
++++ b/net_names.c
+@@ -231,8 +231,9 @@ char *net_getname(long type, long *id)
+ #endif /* !DONT_LOOKUP_HOSTNAME */
+ 	    strcpy(buf, name);
+ 	}
+-	else
++	else {
+ 	    sprintf(buf, "%s", intoa(addr));
++	}
+     }
+ 	break;
+ #ifdef IPV6
+-- 
+2.8.0
+

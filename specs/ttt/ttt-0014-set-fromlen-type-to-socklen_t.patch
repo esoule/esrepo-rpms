@@ -1,0 +1,27 @@
+From da7d407f6dde9b8afeb9ee78d2b7fc8bf7b7abbc Mon Sep 17 00:00:00 2001
+From: Evgueni Souleimanov <esoule@100500.ca>
+Date: Sat, 2 Jul 2016 16:55:55 -0400
+Subject: [PATCH 14/14] set fromlen type to socklen_t
+
+---
+ viewer.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/viewer.c b/viewer.c
+index c6817a7..c54dd43 100644
+--- a/viewer.c
++++ b/viewer.c
+@@ -289,8 +289,9 @@ static int check_seqno(int seq_no)
+ 
+ void view_sockread(ClientData clientdata, int mask)
+ {
+-    int sockfd, nbytes, fromlen, rsize, seq_no, nrecords, i;
++    int sockfd, nbytes, rsize, seq_no, nrecords, i;
+     struct sockaddr_in from_addr;
++    socklen_t fromlen;
+     struct ttt_hdr *hdr;
+     char *cp;
+ 
+-- 
+2.8.0
+

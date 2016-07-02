@@ -1,0 +1,27 @@
+From 73326b50b4380fb3416ecc1a609061d61bd2d38b Mon Sep 17 00:00:00 2001
+From: Evgueni Souleimanov <esoule@100500.ca>
+Date: Sat, 2 Jul 2016 17:10:56 -0400
+Subject: [PATCH 15/15] set fromlen type to socklen_t
+
+---
+ relay.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/relay.c b/relay.c
+index 4726540..98248d4 100644
+--- a/relay.c
++++ b/relay.c
+@@ -297,8 +297,9 @@ int main(argc, argv)
+ 	memset(&probe_addr, 0, sizeof(probe_addr));
+ 	
+     while (1) {
+-	int nbytes, fromlen;
++	int nbytes;
+ 	union sockunion from_addr;
++	socklen_t fromlen;
+ 
+ 	fromlen = sizeof(from_addr);
+ 	if ((nbytes = recvfrom(in_fd, buffer, BUFFER_SIZE, 0,
+-- 
+2.8.0
+
