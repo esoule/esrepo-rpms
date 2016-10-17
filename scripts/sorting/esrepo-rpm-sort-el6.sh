@@ -34,6 +34,24 @@ function guess_repo_name()
 	crosstool-build-filesystem-*|re*fonts*)
 		repo_name=internal
 		;;
+	fuse-iso*)
+		repo_name=main
+		;;
+	lha*)
+		repo_name=main
+		;;
+	numlockx*)
+		repo_name=main
+		;;
+	realpath*)
+		repo_name=main
+		;;
+	unrar*)
+		repo_name=main
+		;;
+	wput*)
+		repo_name=main
+		;;
 	*)
 		repo_name=invalidreponame
 		;;
