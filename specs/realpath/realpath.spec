@@ -3,15 +3,18 @@
 Summary: Return the canonicalized absolute pathname
 Name: realpath
 Version: 1.17
-Release: 1%{?dist}
+Release: 1.101%{?dist}
 License: GPLv2
 Group: System Environment/Base
 URL: http://anonscm.debian.org/gitweb/?p=users/robert/realpath.git
 
-Source: http://ftp.osuosl.org/debian/pool/main/r/realpath/realpath_%{version}.tar.gz
+Source: http://www.lmona.de/files/distfiles/realpath_%{version}.tar.gz
+## from https://tracker.debian.org/news/310448
+Source2: realpath-sha1sums.txt
 BuildRoot:%{_tmppath}/%{name}-%{version}-%{release}-root
 
 BuildRequires: e2fsprogs
+BuildRequires: gettext
 BuildRequires: ncurses-devel
 BuildRequires: zlib-devel
 
@@ -53,5 +56,10 @@ done
 %{_bindir}/realpath
 
 %changelog
+* Mon Oct 17 2016 Evgueni Souleimanov <esoule@100500.ca> - 1.17-1.101
+- update URL to source tarball
+- add checksum for the source tarball
+- add gettext to BuildRequires
+
 * Sun Sep 02 2012 Dag Wieers <dag@wieers.com> - 1.17-1
 - Initial package. (using DAR)
