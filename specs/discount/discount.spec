@@ -1,10 +1,10 @@
 Name:           discount
-Version:        2.1.8
-Release:        3%{?dist}
+Version:        2.1.8a
+Release:        3.101%{?dist}
 Summary:        A command-line utility for converting Markdown files into HTML
 License:        BSD
 URL:            http://www.pell.portland.or.us/~orc/Code/%{name}
-Source0:        %{url}/%{name}-%{version}.tar.gz
+Source0:        %{url}/%{name}-%{version}.tar.bz2
 Patch0:         discount-ldconfig.patch
 Requires:       libmarkdown%{?_isa} = %{version}-%{release}
 
@@ -95,6 +95,9 @@ make test
 
 
 %changelog
+* Tue Oct 18 2016 Evgueni Souleimanov <esoule@100500.ca> - 2.1.8a-3.101
+- Update to 2.1.8a
+
 * Wed Feb 03 2016 Fedora Release Engineering <releng@fedoraproject.org> - 2.1.8-3
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_24_Mass_Rebuild
 
