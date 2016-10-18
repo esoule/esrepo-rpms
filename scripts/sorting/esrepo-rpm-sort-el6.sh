@@ -16,7 +16,7 @@ function guess_repo_name()
 	cppunit113*)
 		repo_name=main
 		;;
-	ccache-*|cppunit*|firstinst*|freetype-*|emacs-git-*|git-*|gitk-*|gitweb-*|perl-Git-*|livesys*|minicom-*|squashfs-tools-*|wine-*|vim-*|wireshark-*)
+	ccache-*|cppunit*|freetype-*|emacs-git-*|git-*|gitk-*|gitweb-*|perl-Git-*|minicom-*|squashfs-tools-*|wine-*|vim-*|wireshark-*)
 		repo_name=extras
 		;;
 	coccinelle-*|hevea-*|latexmk-*|ocaml-*)
@@ -51,6 +51,9 @@ function guess_repo_name()
 		;;
 	wput*)
 		repo_name=main
+		;;
+	firstinst*|livesys*)
+		repo_name=livemedia
 		;;
 	*)
 		repo_name=invalidreponame
