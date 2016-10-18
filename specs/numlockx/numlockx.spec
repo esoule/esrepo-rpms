@@ -1,12 +1,12 @@
 Name:           numlockx
 Version:        1.2
-Release:        2%{?dist}
+Release:        2.101%{?dist}
 Summary:        Turns on NumLock after starting X
 
 Group:          Applications/System
 License:        MIT
 URL:            http://ktown.kde.org/~seli/numlockx/
-Source0:        http://ktown.kde.org/~seli/numlockx/numlockx-%{version}.tar.gz
+Source0:        http://pkgs.fedoraproject.org/repo/pkgs/numlockx/numlockx-%{version}.tar.gz/be9109370447eae23f6f3f8527bb1a67/numlockx-%{version}.tar.gz
 Source1:        numlockx.sh
 
 BuildRequires:  libX11-devel libXtst-devel libXext-devel libXt-devel imake
@@ -38,6 +38,9 @@ install -p -D %{SOURCE1} $RPM_BUILD_ROOT%{_sysconfdir}/X11/xinit/xinitrc.d/numlo
 %doc AUTHORS README LICENSE
 
 %changelog
+* Mon Oct 17 2016 Evgueni Souleimanov <esoule@100500.ca> - 1.2-2.101
+- update URL to source tarball
+
 * Fri Jan 13 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.2-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_17_Mass_Rebuild
 
