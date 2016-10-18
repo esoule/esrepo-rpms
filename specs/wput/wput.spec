@@ -5,12 +5,12 @@
 Summary: Uploads files to FTP servers
 Name: wput
 Version: 0.6.1
-Release: 1%{?dist}
+Release: 1.101%{?dist}
 License: GPL
 Group: Applications/Internet
 URL: http://wput.sourceforge.net/
 
-Source: http://dl.sf.net/wput/wput-%{version}.tgz
+Source: http://heanet.dl.sourceforge.net/project/wput/wput/%{version}/wput-%{version}.tgz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
 BuildRequires: openssl-devel
@@ -43,5 +43,8 @@ with an easy to use command line interface similar to wget's interface.
 %{_bindir}/wput
 
 %changelog
+* Mon Oct 17 2016 Evgueni Souleimanov <esoule@100500.ca> - 0.6.1-1.101
+- update URL to source tarball
+
 * Sun Dec 16 2007 Dries Verachtert <dries@ulyssis.org> - 0.6.1-1
 - Initial package.
