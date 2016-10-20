@@ -1,6 +1,6 @@
 Name:           discount
 Version:        2.1.8a
-Release:        3.101%{?dist}
+Release:        3.102%{?dist}
 Summary:        A command-line utility for converting Markdown files into HTML
 License:        BSD
 URL:            http://www.pell.portland.or.us/~orc/Code/%{name}
@@ -43,6 +43,7 @@ CFLAGS='%{optflags}' ./configure.sh \
     --execdir=%{_bindir} \
     --libdir=%{_libdir} \
     --mandir=%{_mandir} \
+    --with-tabstops=8 \
     --enable-all-features \
     --with-fenced-code
 make %{?_smp_mflags}
@@ -95,6 +96,10 @@ make test
 
 
 %changelog
+* Thu Oct 20 2016 Evgueni Souleimanov <esoule@100500.ca> - 2.1.8a-3.102
+- Set tabstops to 8 characters. If tabstops of 4 characters
+  are needed, MKD_TABSTOP flag may be set at runtime by user.
+
 * Tue Oct 18 2016 Evgueni Souleimanov <esoule@100500.ca> - 2.1.8a-3.101
 - Update to 2.1.8a
 
