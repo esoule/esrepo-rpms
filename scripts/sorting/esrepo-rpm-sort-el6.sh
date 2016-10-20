@@ -25,7 +25,7 @@ function guess_repo_name()
 	cproto*|keepalived*|quilt*|rtems-4.6ng6-*|rtems-4.6ng10-*|rtems-4.6ng11-*)
 		repo_name=testing
 		;;
-	discount*)
+	discount*|libmarkdown*)
 		repo_name=main
 		;;
 	fcompat-*)
