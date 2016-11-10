@@ -49,6 +49,9 @@ function guess_repo_name()
 	realpath*)
 		repo_name=main
 		;;
+	strip-nondeterminism*)
+		repo_name=main
+		;;
 	unrar*)
 		repo_name=main
 		;;
