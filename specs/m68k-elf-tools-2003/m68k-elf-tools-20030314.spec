@@ -9,7 +9,7 @@
 
 Name:           m68k-elf-tools-20030314
 Version:        20030314
-Release:        1.101%{?dist}
+Release:        1.102%{?dist}
 Summary:        Collection of tools for use with uClinux/m68k
 
 Group:          Development/Tools
@@ -20,6 +20,10 @@ Source1:        md5sums-%{version}.txt
 Source2:        fix-embedded-paths.c
 
 %define         buildsubdir             %{name}
+
+## Note: __find_provides and __find_requires are used
+## iff _use_internal_dependency_generator is zero.
+%define         _use_internal_dependency_generator              0
 
 # Binaries inside are 32-bit
 ExclusiveArch:  %ix86
@@ -42,6 +46,8 @@ m68k-bdm-elf-gdb are included.
 
 %prep
 %setup -q -T -c -n %{buildsubdir}
+
+( cd %{_sourcedir} && md5sum -c %{SOURCE1} ; )
 
 SKIP=$(awk '/^__ARCHIVE_FOLLOWS__/ { print NR + 1; exit 0; }' %{SOURCE0})
 
@@ -73,6 +79,24 @@ for link in $( find -L ./%{_newprefix} -type l ) ; do
 	ln -s "${bn}" "${link}"
 done
 
+(
+cd %{_builddir}/%{buildsubdir}%{_newprefix}
+find -L . -type f | sort | xargs --no-run-if-empty md5sum -b
+true
+) >md5sums.txt
+
+mv md5sums.txt %{_builddir}/%{buildsubdir}%{_newprefix}/%{name}-%{version}-%{release}-md5sums.txt
+
+## roll back dates of new files
+touch --date='2004-03-14 00:00:00 +0000' mark-newest-file.txt
+
+find -H %{_builddir}/%{buildsubdir}%{_newprefix}    \
+        -newer mark-newest-file.txt -print0    \
+        | xargs -0 --no-run-if-empty touch --no-create    \
+        --no-dereference --date="2004-03-14 00:00:00 +0000"
+
+rm -f mark-newest-file.txt
+
 %install
 rm -rf %{buildroot}
 mkdir -p %{buildroot}%{_prefix}
@@ -97,6 +121,7 @@ EOF
 chmod +x %{_builddir}/%{buildsubdir}/find-provides-my
 chmod +x %{_builddir}/%{buildsubdir}/find-requires-my
 
+## Note: Used iff _use_internal_dependency_generator is zero.
 %define __find_provides %{_builddir}/%{buildsubdir}/find-provides-my
 %define __find_requires %{_builddir}/%{buildsubdir}/find-requires-my
 
@@ -112,5 +137,11 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Fri Nov 10 2016 Evgueni Souleimanov <esoule@100500.ca> - 20030314-1.102
+- Actually use generated find-provides and find-requires scripts
+- Check checksum of origin .sh file
+- Put checksum of all files into the package
+- Roll back dates of files modified with fix-embedded-paths
+
 * Thu Nov 10 2016 Evgueni Souleimanov <esoule@100500.ca> - 20030314-1.101
 - Initial package
