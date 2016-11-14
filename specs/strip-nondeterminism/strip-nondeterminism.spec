@@ -1,13 +1,16 @@
 Name:           strip-nondeterminism
 Version:        0.028
-Release:        1.101%{?dist}
+Release:        1.102%{?dist}
 Summary:        Tool for stripping non-deterministic information from files
 
 Group:          Development/Libraries
 License:        GPLv3+
 URL:            https://anonscm.debian.org/git/reproducible/strip-nondeterminism.git
 Source0:        http://http.debian.net/debian/pool/main/s/strip-nondeterminism/strip-nondeterminism_%{version}.orig.tar.gz
+Source1:        dummy.bflt.in
+Source2:        dummy.bflt.out
 Patch1:         strip-nondeterminism-0001-stop-using-subtests.patch
+Patch2:         strip-nondeterminism-0002-Add-bFLT-format-support.patch
 BuildArch:      noarch
 
 BuildRequires:  perl(Archive::Zip)
@@ -44,6 +47,9 @@ and the strip-nondeterminism command line utility.
 %prep
 %setup -q -c -n %{name}-%{version}
 %patch1 -p1
+%patch2 -p1
+mkdir t/fixtures/bflt
+cp %{SOURCE1} %{SOURCE2} t/fixtures/bflt/
 
 %build
 %{__perl} Makefile.PL INSTALLDIRS=vendor
@@ -82,6 +88,9 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Sun Nov 13 2016 Evgueni Souleimanov <esoule@100500.ca> - 0.028-1.102
+- Add support for bFLT Binary Flat executables
+
 * Wed Nov 9 2016 Evgueni Souleimanov <esoule@100500.ca> - 0.028-1.101
 - Initial package
 - Make tests work on perl(Test::More) 0.92
