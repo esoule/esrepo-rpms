@@ -8,11 +8,13 @@
 Summary: Mouse and keyboard sharing utility
 Name: synergy
 Version: 1.3.6
-Release: 1%{?dist}
+Release: 1.101%{?dist}
 License: GPL
 Group: System Environment/Daemons
 URL: http://synergy-foss.org/
-Source: http://synergy.googlecode.com/files/synergy-%{version}-Source.tar.gz
+Source: %{name}-%{version}.tar.gz
+Source2: %{name}-snapshot.sh
+Source3: %{name}-sha1sums.txt
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
 BuildRequires: cmake
@@ -38,7 +40,8 @@ with multiple computers on their desk since each system uses its
 own display.
 
 %prep
-%setup -n %{name}-%{version}-Source
+%setup -q
+( cd %{_sourcedir} && sha1sum -c %{SOURCE3} ; )
 
 %build
 cmake . 
@@ -60,6 +63,10 @@ cmake .
 %{_bindir}/synergys
 
 %changelog
+* Wed Nov 20 2016 Evgueni Souleimanov <esoule@100500.ca> - 1.3.6-1.101
+- Rebuild on EL6.
+- Update source tarball.
+
 * Tue Mar 22 2011 Steve Huff <shuff@vecna.org> - 1.3.6-1
 - Update to version 1.3.6.
 - Now uses cmake to build.
