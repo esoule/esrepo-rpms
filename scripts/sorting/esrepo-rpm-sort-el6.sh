@@ -55,6 +55,9 @@ function guess_repo_name()
 	strip-nondeterminism*)
 		repo_name=main
 		;;
+	synergy*)
+		repo_name=extras
+		;;
 	unrar*)
 		repo_name=main
 		;;
