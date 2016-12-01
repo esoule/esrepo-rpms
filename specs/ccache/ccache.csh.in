@@ -24,5 +24,3 @@ else if ( $uid != 0 ) then
         unsetenv CCACHE_HARDLINK
     endif
 endif
-
-setenv CCACHE_HASHDIR

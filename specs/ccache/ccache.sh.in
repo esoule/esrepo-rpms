@@ -25,5 +25,3 @@ elif [ "${EUID:-}" != 0 ] ; then
         unset CCACHE_HARDLINK
     fi
 fi
-
-export CCACHE_HASHDIR=
