@@ -13,7 +13,7 @@
 
 Name:           ccache
 Version:        3.3.3
-Release:        1%{?dist}
+Release:        1.103%{?dist}
 Summary:        C/C++ compiler cache
 
 License:        GPLv3+
@@ -49,11 +49,19 @@ rm -r zlib
 
 
 %build
+# build without existing ccache
+PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
+export PATH
+
 %configure
 make %{?_smp_mflags}
 
 
 %install
+# build without existing ccache
+PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
+export PATH
+
 rm -rf $RPM_BUILD_ROOT
 
 %make_install
@@ -91,6 +99,10 @@ find $RPM_BUILD_ROOT%{_libdir}/ccache -type l | \
 
 
 %check
+# test without existing ccache
+PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
+export PATH
+
 make check
 make check CC=clang
 
@@ -210,6 +222,9 @@ getent group ccache >/dev/null || groupadd -r ccache || :
 
 
 %changelog
+* Wed Nov 20 2016 Evgueni Souleimanov <esoule@100500.ca> - 3.3.3-1.103
+- Rebuild on EL6, without existing ccache in mock root.
+
 * Fri Oct 28 2016 Ville Skyttä <ville.skytta@iki.fi> - 3.3.3-1
 - Update to 3.3.3
 
