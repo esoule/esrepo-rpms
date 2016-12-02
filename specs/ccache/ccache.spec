@@ -13,7 +13,7 @@
 
 Name:           ccache
 Version:        3.3.3
-Release:        1.103%{?dist}
+Release:        1.104%{?dist}
 Summary:        C/C++ compiler cache
 
 License:        GPLv3+
@@ -31,6 +31,16 @@ Requires:       coreutils
 # For groupadd
 Requires(pre):  shadow-utils
 
+# We unset CCACHE_HASHDIR variable during build and test:
+#
+# * EPEL for EL6 provides ccache-3.1.6
+# * ccache-3.1.6 package sets "export CCACHE_HASHDIR=" in
+#   /etc/profile.d/ccache.sh
+# * "export CCACHE_HASHDIR=" breaks CCACHE_NOHASHDIR test randomly (on
+#   some build systems but not others)
+# * CCACHE_HASHDIR=1 is default in ccache-3.3.3 but not in
+#   ccache-3.1.6
+
 %description
 ccache is a compiler cache.  It speeds up recompilation of C/C++ code
 by caching previous compiles and detecting when the same compile is
@@ -47,13 +57,15 @@ sed -e 's|@LIBDIR@|%{_libdir}|g' -e 's|@CACHEDIR@|%{_var}/cache/ccache|g' \
 # Make sure system zlib is used
 rm -r zlib
 
-
 %build
 # build without existing ccache
 PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
 export PATH
+unset CCACHE_HASHDIR
+set | grep -v -E '^([P]WD|[R]PM_BUILD_ROOT)' | grep -i [c][c]ache
 
 %configure
+
 make %{?_smp_mflags}
 
 
@@ -61,6 +73,8 @@ make %{?_smp_mflags}
 # build without existing ccache
 PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
 export PATH
+unset CCACHE_HASHDIR
+set | grep -v -E '^([P]WD|[R]PM_BUILD_ROOT)' | grep -i [c][c]ache
 
 rm -rf $RPM_BUILD_ROOT
 
@@ -102,6 +116,9 @@ find $RPM_BUILD_ROOT%{_libdir}/ccache -type l | \
 # test without existing ccache
 PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin
 export PATH
+set | grep -v -E '^([P]WD|[R]PM_BUILD_ROOT)' | grep -i [c][c]ache
+unset CCACHE_HASHDIR
+set | grep -v -E '^([P]WD|[R]PM_BUILD_ROOT)' | grep -i [c][c]ache
 
 make check
 make check CC=clang
@@ -222,6 +239,11 @@ getent group ccache >/dev/null || groupadd -r ccache || :
 
 
 %changelog
+* Thu Dec  1 2016 Evgueni Souleimanov <esoule@100500.ca> - 3.3.3-1.104
+- Fix random CCACHE_NOHASHDIR test breakage during build.
+  Test CCACHE_NOHASHDIR was breaking on some build systems but not
+  others.
+
 * Wed Nov 20 2016 Evgueni Souleimanov <esoule@100500.ca> - 3.3.3-1.103
 - Rebuild on EL6, without existing ccache in mock root.
 
