@@ -1,6 +1,6 @@
 Name:           strip-nondeterminism
 Version:        0.028
-Release:        1.102%{?dist}
+Release:        1.103%{?dist}
 Summary:        Tool for stripping non-deterministic information from files
 
 Group:          Development/Libraries
@@ -9,8 +9,12 @@ URL:            https://anonscm.debian.org/git/reproducible/strip-nondeterminism
 Source0:        http://http.debian.net/debian/pool/main/s/strip-nondeterminism/strip-nondeterminism_%{version}.orig.tar.gz
 Source1:        dummy.bflt.in
 Source2:        dummy.bflt.out
+Source3:        Linux-1001.uImage.in
+Source4:        Linux-1001.uImage.out
+
 Patch1:         strip-nondeterminism-0001-stop-using-subtests.patch
 Patch2:         strip-nondeterminism-0002-Add-bFLT-format-support.patch
+Patch4:         strip-nondeterminism-0004-Add-uImage-handler.patch
 BuildArch:      noarch
 
 BuildRequires:  perl(Archive::Zip)
@@ -48,8 +52,11 @@ and the strip-nondeterminism command line utility.
 %setup -q -c -n %{name}-%{version}
 %patch1 -p1
 %patch2 -p1
+%patch4 -p1
 mkdir t/fixtures/bflt
 cp %{SOURCE1} %{SOURCE2} t/fixtures/bflt/
+mkdir t/fixtures/uimage
+cp %{SOURCE3} %{SOURCE4} t/fixtures/bflt/
 
 %build
 %{__perl} Makefile.PL INSTALLDIRS=vendor
@@ -88,6 +95,9 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Wed Dec 28 2016 Evgueni Souleimanov <esoule@100500.ca> - 0.028-1.103
+- Add support for legacy U-Boot image (uImage) files
+
 * Sun Nov 13 2016 Evgueni Souleimanov <esoule@100500.ca> - 0.028-1.102
 - Add support for bFLT Binary Flat executables
 
