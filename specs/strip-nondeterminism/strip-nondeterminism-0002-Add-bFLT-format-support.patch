@@ -1,19 +1,26 @@
-From 22fc4588d007f863eb4b8093d1902aa7b07d34d1 Mon Sep 17 00:00:00 2001
+From 56bf2368dba618604c6dfa667b1729ef1203a01a Mon Sep 17 00:00:00 2001
 From: Evgueni Souleimanov <esoule@100500.ca>
-Date: Sun, 13 Nov 2016 19:47:40 -0500
-Subject: [PATCH 2/3] Add bFLT format support
+Date: Sun, 22 Jan 2017 21:27:40 -0500
+Subject: [PATCH 2/5] Add bFLT format support
 
+Do not rely on file command when determining bFLT executable files.
+Instead, use our own function in Perl to check header fields.
+
+Update bFLT test binaries. These binaries are reported by file-5.04
+as "Infocom game data (Z-machine 98, Release 19540 / Serial 00)"
+instead of "BFLT executable - version 4 gotpic".
 ---
- lib/File/StripNondeterminism.pm               |   6 ++
- lib/File/StripNondeterminism/handlers/bflt.pm | 102 ++++++++++++++++++++++++++
- 2 files changed, 108 insertions(+)
+ lib/File/StripNondeterminism.pm               |   8 ++
+ lib/File/StripNondeterminism/handlers/bflt.pm | 155 ++++++++++++++++++++++++++
+ 2 files changed, 163 insertions(+)
  create mode 100644 lib/File/StripNondeterminism/handlers/bflt.pm
 
 diff --git a/lib/File/StripNondeterminism.pm b/lib/File/StripNondeterminism.pm
-index a5c218f..ea7cf7f 100644
+index e42f8c1..6f432c8 100644
 --- a/lib/File/StripNondeterminism.pm
 +++ b/lib/File/StripNondeterminism.pm
-@@ -26,10 +26,11 @@ use File::StripNondeterminism::handlers::ar;
+@@ -25,12 +25,13 @@ use POSIX qw(tzset);
+ use File::StripNondeterminism::handlers::ar;
  use File::StripNondeterminism::handlers::gettext;
  use File::StripNondeterminism::handlers::gzip;
  use File::StripNondeterminism::handlers::jar;
@@ -25,14 +32,17 @@ index a5c218f..ea7cf7f 100644
  use File::StripNondeterminism::handlers::zip;
  
  our($VERSION, $canonical_time, $clamp_time);
-@@ -78,10 +79,14 @@ sub get_normalizer_for_file {
- 	}
- 	# pear registry
- 	if (m/\.reg$/ && File::StripNondeterminism::handlers::pearregistry::is_registry_file($_)) {
+ 
+@@ -83,12 +84,17 @@ sub get_normalizer_for_file {
+ 		m/\.reg$/
+ 		&& File::StripNondeterminism::handlers::pearregistry::is_registry_file(
+ 			$_)
+ 	  ) {
  		return \&File::StripNondeterminism::handlers::pearregistry::normalize;
  	}
 +	# bFLT
-+	if (m/\.bflt$/ && _get_file_type($_) =~ m/BFLT executable \- version 4/) {
++	if (m/\.bflt$/
++		&& File::StripNondeterminism::handlers::bflt::is_bflt_file($_)) {
 +		return \&File::StripNondeterminism::handlers::bflt::normalize;
 +	}
  	# PNG
@@ -40,24 +50,28 @@ index a5c218f..ea7cf7f 100644
  		return \&File::StripNondeterminism::handlers::png::normalize;
  	}
  	# pom.properties, version.properties
-@@ -101,10 +106,11 @@ sub get_normalizer_by_name {
- 	return \&File::StripNondeterminism::handlers::gettext::normalize if $_ eq 'gettext';
- 	return \&File::StripNondeterminism::handlers::gzip::normalize if $_ eq 'gzip';
- 	return \&File::StripNondeterminism::handlers::jar::normalize if $_ eq 'jar';
- 	return \&File::StripNondeterminism::handlers::javadoc::normalize if $_ eq 'javadoc';
- 	return \&File::StripNondeterminism::handlers::pearregistry::normalize if $_ eq 'pearregistry';
-+	return \&File::StripNondeterminism::handlers::bflt::normalize if $_ eq 'bflt';
- 	return \&File::StripNondeterminism::handlers::png::normalize if $_ eq 'png';
- 	return \&File::StripNondeterminism::handlers::javaproperties::normalize if $_ eq 'javaproperties';
- 	return \&File::StripNondeterminism::handlers::zip::normalize if $_ eq 'zip';
- 	return undef;
- }
+ 	if (
+@@ -117,12 +123,14 @@ sub get_normalizer_by_name {
+ 	return \&File::StripNondeterminism::handlers::jar::normalize
+ 	  if $_ eq 'jar';
+ 	return \&File::StripNondeterminism::handlers::javadoc::normalize
+ 	  if $_ eq 'javadoc';
+ 	return \&File::StripNondeterminism::handlers::pearregistry::normalize
+ 	  if $_ eq 'pearregistry';
++	return \&File::StripNondeterminism::handlers::bflt::normalize
++	  if $_ eq 'bflt';
+ 	return \&File::StripNondeterminism::handlers::png::normalize
+ 	  if $_ eq 'png';
+ 	return \&File::StripNondeterminism::handlers::javaproperties::normalize
+ 	  if $_ eq 'javaproperties';
+ 	return \&File::StripNondeterminism::handlers::zip::normalize
+ 	  if $_ eq 'zip';
 diff --git a/lib/File/StripNondeterminism/handlers/bflt.pm b/lib/File/StripNondeterminism/handlers/bflt.pm
 new file mode 100644
-index 0000000..ebfdf30
+index 0000000..b786fa1
 --- /dev/null
 +++ b/lib/File/StripNondeterminism/handlers/bflt.pm
-@@ -0,0 +1,102 @@
+@@ -0,0 +1,155 @@
 +#
 +# Copyright 2016 Evgueni Souleimanov <esoule@100500.ca>
 +#
@@ -83,6 +97,13 @@ index 0000000..ebfdf30
 +use Fcntl q/SEEK_SET/;
 +
 +use constant bFLT => 0x62464C54;
++use constant FLAT_HDRLEN => 64;
++
++# Heuristic values
++use constant MAX_OFFSET => 0xFFFFFFF;
++use constant MAX_STACK_SIZE => 0xFFFFFF;
++use constant MAX_COUNT => 0xFFFFFF;
++use constant RESERVED_FLAGS => 0xFFFFFFC0;
 +
 +# From elf2flt flat.h
 +# /*
@@ -113,6 +134,51 @@ index 0000000..ebfdf30
 +#     uint32_t filler[5];    /* Reservered, set to zero */
 +# };
 +
++sub is_bflt_header {
++	my ($hdr) = @_;
++
++	my ($f_magic, $f_rev, $f_entry, $f_data_start,
++		$f_data_end, $f_bss_end, $f_stack_size, $f_reloc_start,
++		$f_reloc_count, $f_flags, $f_build_date, $filler_11,
++		$filler_12, $filler_13, $filler_14, $filler_15) = unpack('NNNNNNNNNNNNNNNN', $hdr);
++
++	return 0 unless ($f_magic == bFLT);
++
++	return 0 unless ($f_rev == 4);
++
++	return 0 unless ($f_entry < MAX_OFFSET && $f_data_start < MAX_OFFSET
++			&& $f_data_end < MAX_OFFSET && $f_bss_end < MAX_OFFSET);
++
++	return 0 unless ($f_stack_size < MAX_STACK_SIZE);
++
++	return 0 unless ($f_reloc_start < MAX_OFFSET && $f_reloc_count < MAX_COUNT);
++
++	return 0 unless (($f_flags & RESERVED_FLAGS) == 0);
++
++	return 0 unless ($filler_11 == 0 && $filler_12 == 0
++		&& $filler_13 == 0 && $filler_14 == 0 && $filler_15 == 0);
++
++	return 1;
++}
++
++sub is_bflt_fh {
++	my ($fh) = @_;
++	my $hdr;
++
++	binmode($fh);
++
++	my $bytes_read = sysread($fh, $hdr, FLAT_HDRLEN);
++	return 0 unless $bytes_read == FLAT_HDRLEN;
++
++	return is_bflt_header($hdr);
++}
++
++sub is_bflt_file {
++	my ($filename) = @_;
++	my $fh;
++	return open($fh, '<', $filename) && is_bflt_fh($fh);
++}
++
 +sub normalize {
 +	my ($filename) = @_;
 +
@@ -122,8 +188,8 @@ index 0000000..ebfdf30
 +	binmode($fh);
 +
 +	my $hdr;
-+	my $bytes_read = sysread($fh, $hdr, 64);
-+	return 0 unless $bytes_read == 64;
++	my $bytes_read = sysread($fh, $hdr, FLAT_HDRLEN);
++	return 0 unless $bytes_read == FLAT_HDRLEN;
 +
 +	my ($f_magic, $f_rev, $f_entry, $f_data_start,
 +		$f_data_end, $f_bss_end, $f_stack_size, $f_reloc_start,
@@ -132,6 +198,7 @@ index 0000000..ebfdf30
 +
 +	return 0 unless $f_magic == bFLT;
 +	return 0 unless $f_rev == 4;
++	return 0 unless (is_bflt_header($hdr));
 +
 +	my $f_build_date_orig = $f_build_date;
 +

@@ -1,19 +1,20 @@
-From c4a411ce5853e7d22bbe5461c5e70609fd3cab24 Mon Sep 17 00:00:00 2001
+From ab7adc35b959a1144ccdf1e01019b25687e7862e Mon Sep 17 00:00:00 2001
 From: Evgueni Souleimanov <esoule@100500.ca>
-Date: Wed, 28 Dec 2016 19:22:46 -0500
-Subject: [PATCH 4/5] Add uImage handler
+Date: Sun, 22 Jan 2017 21:30:03 -0500
+Subject: [PATCH 3/5] Add uImage handler
 
 ---
- lib/File/StripNondeterminism.pm                 |   6 +
+ lib/File/StripNondeterminism.pm                 |   8 ++
  lib/File/StripNondeterminism/handlers/uimage.pm | 142 ++++++++++++++++++++++++
- 2 files changed, 148 insertions(+)
+ 2 files changed, 150 insertions(+)
  create mode 100644 lib/File/StripNondeterminism/handlers/uimage.pm
 
 diff --git a/lib/File/StripNondeterminism.pm b/lib/File/StripNondeterminism.pm
-index ea7cf7f..3e8afd2 100644
+index 6f432c8..01b7aef 100644
 --- a/lib/File/StripNondeterminism.pm
 +++ b/lib/File/StripNondeterminism.pm
-@@ -27,10 +27,11 @@ use File::StripNondeterminism::handlers::gettext;
+@@ -26,12 +26,13 @@ use File::StripNondeterminism::handlers::ar;
+ use File::StripNondeterminism::handlers::gettext;
  use File::StripNondeterminism::handlers::gzip;
  use File::StripNondeterminism::handlers::jar;
  use File::StripNondeterminism::handlers::javadoc;
@@ -25,14 +26,17 @@ index ea7cf7f..3e8afd2 100644
  use File::StripNondeterminism::handlers::zip;
  
  our($VERSION, $canonical_time, $clamp_time);
-@@ -83,10 +84,14 @@ sub get_normalizer_for_file {
+ 
+@@ -89,12 +90,17 @@ sub get_normalizer_for_file {
  	}
  	# bFLT
- 	if (m/\.bflt$/ && _get_file_type($_) =~ m/BFLT executable \- version 4/) {
+ 	if (m/\.bflt$/
+ 		&& File::StripNondeterminism::handlers::bflt::is_bflt_file($_)) {
  		return \&File::StripNondeterminism::handlers::bflt::normalize;
  	}
 +	# uImage
-+	if (m/\.uImage$/ && File::StripNondeterminism::handlers::uimage::is_uimage_file($_)) {
++	if (m/\.uimage$/i
++		&& File::StripNondeterminism::handlers::uimage::is_uimage_file($_)) {
 +		return \&File::StripNondeterminism::handlers::uimage::normalize;
 +	}
  	# PNG
@@ -40,18 +44,22 @@ index ea7cf7f..3e8afd2 100644
  		return \&File::StripNondeterminism::handlers::png::normalize;
  	}
  	# pom.properties, version.properties
-@@ -107,10 +112,11 @@ sub get_normalizer_by_name {
- 	return \&File::StripNondeterminism::handlers::gzip::normalize if $_ eq 'gzip';
- 	return \&File::StripNondeterminism::handlers::jar::normalize if $_ eq 'jar';
- 	return \&File::StripNondeterminism::handlers::javadoc::normalize if $_ eq 'javadoc';
- 	return \&File::StripNondeterminism::handlers::pearregistry::normalize if $_ eq 'pearregistry';
- 	return \&File::StripNondeterminism::handlers::bflt::normalize if $_ eq 'bflt';
-+	return \&File::StripNondeterminism::handlers::uimage::normalize if $_ eq 'uimage';
- 	return \&File::StripNondeterminism::handlers::png::normalize if $_ eq 'png';
- 	return \&File::StripNondeterminism::handlers::javaproperties::normalize if $_ eq 'javaproperties';
- 	return \&File::StripNondeterminism::handlers::zip::normalize if $_ eq 'zip';
- 	return undef;
- }
+ 	if (
+@@ -125,12 +131,14 @@ sub get_normalizer_by_name {
+ 	return \&File::StripNondeterminism::handlers::javadoc::normalize
+ 	  if $_ eq 'javadoc';
+ 	return \&File::StripNondeterminism::handlers::pearregistry::normalize
+ 	  if $_ eq 'pearregistry';
+ 	return \&File::StripNondeterminism::handlers::bflt::normalize
+ 	  if $_ eq 'bflt';
++	return \&File::StripNondeterminism::handlers::uimage::normalize
++	  if $_ eq 'uimage';
+ 	return \&File::StripNondeterminism::handlers::png::normalize
+ 	  if $_ eq 'png';
+ 	return \&File::StripNondeterminism::handlers::javaproperties::normalize
+ 	  if $_ eq 'javaproperties';
+ 	return \&File::StripNondeterminism::handlers::zip::normalize
+ 	  if $_ eq 'zip';
 diff --git a/lib/File/StripNondeterminism/handlers/uimage.pm b/lib/File/StripNondeterminism/handlers/uimage.pm
 new file mode 100644
 index 0000000..1cb3131

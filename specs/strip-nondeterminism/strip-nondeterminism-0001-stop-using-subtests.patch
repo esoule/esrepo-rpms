@@ -1,7 +1,7 @@
-From 9b4c350742083c531532df3ab28281c9b5e6fa77 Mon Sep 17 00:00:00 2001
+From fbee84706a205df92ade20ef906f9b297aafa3ad Mon Sep 17 00:00:00 2001
 From: Evgueni Souleimanov <esoule@100500.ca>
-Date: Sun, 13 Nov 2016 18:59:47 -0500
-Subject: [PATCH 1/3] t/fixtures.t: stop using subtests on Test::More 0.92 on
+Date: Sun, 22 Jan 2017 21:24:27 -0500
+Subject: [PATCH 1/5] t/fixtures.t: stop using subtests on Test::More 0.92 on
  el6
 
 ---
@@ -12,7 +12,8 @@ diff --git a/t/fixtures.t b/t/fixtures.t
 index fda489b..fc13495 100644
 --- a/t/fixtures.t
 +++ b/t/fixtures.t
-@@ -49,11 +49,11 @@ my %STAT = (
+@@ -48,13 +48,13 @@ my %STAT = (
+ 
  File::StripNondeterminism::init();
  
  $File::StripNondeterminism::canonical_time = 1423159771;
@@ -25,7 +26,9 @@ index fda489b..fc13495 100644
  	# Use a temporary directory per fixture so we can check whether any
  	# extraneous files are leftover.
  	my $temp = tempdir( CLEANUP => 1 );
-@@ -63,11 +63,11 @@ foreach my $filename (@fixtures) {
+ 
+@@ -62,13 +62,13 @@ foreach my $filename (@fixtures) {
+ 	(my $out = $filename) =~ s/\.in$/.out/;
  
  	copy($filename, $in) or die "Copy failed: $!";
  
@@ -38,7 +41,9 @@ index fda489b..fc13495 100644
  		my @stat_before = lstat $in;
  		$normalizer->($in) if defined $normalizer;
  		my @stat_after = lstat $in;
-@@ -80,10 +80,9 @@ foreach my $filename (@fixtures) {
+ 
+@@ -79,11 +79,10 @@ foreach my $filename (@fixtures) {
+ 			is($stat_before[$i], $stat_after[$i], "$filename: $STAT{$i}");
  		}
  
  		my @files = glob("$temp/*");

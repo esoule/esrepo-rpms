@@ -1,6 +1,6 @@
 Name:           strip-nondeterminism
-Version:        0.028
-Release:        1.103%{?dist}
+Version:        0.029
+Release:        1.104%{?dist}
 Summary:        Tool for stripping non-deterministic information from files
 
 Group:          Development/Libraries
@@ -95,6 +95,10 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Sun Jan 22 2017 Evgueni Souleimanov <esoule@100500.ca> - 0.029-1.104
+- Update to 0.029
+- Make bFLT executable detection more reliable
+
 * Wed Dec 28 2016 Evgueni Souleimanov <esoule@100500.ca> - 0.028-1.103
 - Add support for legacy U-Boot image (uImage) files
 
