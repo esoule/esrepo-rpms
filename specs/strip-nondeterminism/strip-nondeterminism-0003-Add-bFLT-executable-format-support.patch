@@ -1,14 +1,13 @@
-From 56bf2368dba618604c6dfa667b1729ef1203a01a Mon Sep 17 00:00:00 2001
+From 5f4b2e0cf9d023e4b31d40bab907d2d4218fd698 Mon Sep 17 00:00:00 2001
 From: Evgueni Souleimanov <esoule@100500.ca>
 Date: Sun, 22 Jan 2017 21:27:40 -0500
-Subject: [PATCH 2/5] Add bFLT format support
+Subject: [PATCH 3/6] Add bFLT executable format support
 
 Do not rely on file command when determining bFLT executable files.
 Instead, use our own function in Perl to check header fields.
-
-Update bFLT test binaries. These binaries are reported by file-5.04
-as "Infocom game data (Z-machine 98, Release 19540 / Serial 00)"
-instead of "BFLT executable - version 4 gotpic".
+This fixes the issue of skipped bFLT files reported by file-5.04 as
+"Infocom game data (Z-machine 98, Release 19540 / Serial 00)" instead of
+"BFLT executable - version 4 gotpic".
 ---
  lib/File/StripNondeterminism.pm               |   8 ++
  lib/File/StripNondeterminism/handlers/bflt.pm | 155 ++++++++++++++++++++++++++
@@ -16,7 +15,7 @@ instead of "BFLT executable - version 4 gotpic".
  create mode 100644 lib/File/StripNondeterminism/handlers/bflt.pm
 
 diff --git a/lib/File/StripNondeterminism.pm b/lib/File/StripNondeterminism.pm
-index e42f8c1..6f432c8 100644
+index ef25742..5870b99 100644
 --- a/lib/File/StripNondeterminism.pm
 +++ b/lib/File/StripNondeterminism.pm
 @@ -25,12 +25,13 @@ use POSIX qw(tzset);

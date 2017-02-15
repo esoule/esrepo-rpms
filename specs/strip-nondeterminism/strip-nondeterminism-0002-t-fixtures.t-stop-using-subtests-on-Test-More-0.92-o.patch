@@ -1,7 +1,7 @@
-From fbee84706a205df92ade20ef906f9b297aafa3ad Mon Sep 17 00:00:00 2001
+From 0689710b369a1c506b6609aa38a5fc34514e65c6 Mon Sep 17 00:00:00 2001
 From: Evgueni Souleimanov <esoule@100500.ca>
-Date: Sun, 22 Jan 2017 21:24:27 -0500
-Subject: [PATCH 1/5] t/fixtures.t: stop using subtests on Test::More 0.92 on
+Date: Sun, 13 Nov 2016 18:59:47 -0500
+Subject: [PATCH 2/6] t/fixtures.t: stop using subtests on Test::More 0.92 on
  el6
 
 ---
@@ -9,7 +9,7 @@ Subject: [PATCH 1/5] t/fixtures.t: stop using subtests on Test::More 0.92 on
  1 file changed, 2 insertions(+), 3 deletions(-)
 
 diff --git a/t/fixtures.t b/t/fixtures.t
-index fda489b..fc13495 100644
+index ca5fd9f..128f217 100644
 --- a/t/fixtures.t
 +++ b/t/fixtures.t
 @@ -48,13 +48,13 @@ my %STAT = (

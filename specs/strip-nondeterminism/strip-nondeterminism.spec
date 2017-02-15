@@ -1,6 +1,6 @@
 Name:           strip-nondeterminism
-Version:        0.029
-Release:        1.104%{?dist}
+Version:        0.031
+Release:        1.105%{?dist}
 Summary:        Tool for stripping non-deterministic information from files
 
 Group:          Development/Libraries
@@ -12,13 +12,14 @@ Source2:        dummy.bflt.out
 Source3:        Linux-1001.uImage.in
 Source4:        Linux-1001.uImage.out
 
-Patch1:         strip-nondeterminism-0001-stop-using-subtests.patch
-Patch2:         strip-nondeterminism-0002-Add-bFLT-format-support.patch
-Patch4:         strip-nondeterminism-0004-Add-uImage-handler.patch
+Patch1:         strip-nondeterminism-0001-Reformat-AUTHOR-field-for-ExtUtils-MakeMaker-6.55-on.patch
+Patch2:         strip-nondeterminism-0002-t-fixtures.t-stop-using-subtests-on-Test-More-0.92-o.patch
+Patch3:         strip-nondeterminism-0003-Add-bFLT-executable-format-support.patch
+Patch4:         strip-nondeterminism-0004-Add-U-Boot-Legacy-Image-uImage-format-support.patch
 BuildArch:      noarch
 
 BuildRequires:  perl(Archive::Zip)
-BuildRequires:  perl(ExtUtils::MakeMaker)
+BuildRequires:  perl(ExtUtils::MakeMaker) >= 6.55
 BuildRequires:  perl(Fcntl)
 BuildRequires:  perl(File::Basename)
 BuildRequires:  perl(File::Compare)
@@ -52,6 +53,7 @@ and the strip-nondeterminism command line utility.
 %setup -q -c -n %{name}-%{version}
 %patch1 -p1
 %patch2 -p1
+%patch3 -p1
 %patch4 -p1
 mkdir t/fixtures/bflt
 cp %{SOURCE1} %{SOURCE2} t/fixtures/bflt/
@@ -95,6 +97,12 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Sun Jan 22 2017 Evgueni Souleimanov <esoule@100500.ca> - 0.031-1.105
+- Update to 0.031
+- Make build work with ExtUtils::MakeMaker 6.55
+- Print log entry when fixing a file, in verbose mode. (Closes: #777239)
+- Don't test for stat(2) blksize and blocks (Closes: #854937)
+
 * Sun Jan 22 2017 Evgueni Souleimanov <esoule@100500.ca> - 0.029-1.104
 - Update to 0.029
 - Make bFLT executable detection more reliable

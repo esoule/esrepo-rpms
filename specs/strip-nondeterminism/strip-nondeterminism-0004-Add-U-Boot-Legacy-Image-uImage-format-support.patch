@@ -1,7 +1,7 @@
-From ab7adc35b959a1144ccdf1e01019b25687e7862e Mon Sep 17 00:00:00 2001
+From 175731426b2f16dc1a481b4034446e0a79d26293 Mon Sep 17 00:00:00 2001
 From: Evgueni Souleimanov <esoule@100500.ca>
 Date: Sun, 22 Jan 2017 21:30:03 -0500
-Subject: [PATCH 3/5] Add uImage handler
+Subject: [PATCH 4/6] Add U-Boot Legacy Image (uImage) format support
 
 ---
  lib/File/StripNondeterminism.pm                 |   8 ++
@@ -10,7 +10,7 @@ Subject: [PATCH 3/5] Add uImage handler
  create mode 100644 lib/File/StripNondeterminism/handlers/uimage.pm
 
 diff --git a/lib/File/StripNondeterminism.pm b/lib/File/StripNondeterminism.pm
-index 6f432c8..01b7aef 100644
+index 5870b99..a84b75b 100644
 --- a/lib/File/StripNondeterminism.pm
 +++ b/lib/File/StripNondeterminism.pm
 @@ -26,12 +26,13 @@ use File::StripNondeterminism::handlers::ar;
