@@ -48,9 +48,14 @@
 %global use_systemd         0
 %endif
 
+# Settings for EL <= 7
+%if 0%{?rhel} && 0%{?rhel} <= 7
+%{!?__global_ldflags: %global __global_ldflags -Wl,-z,relro}
+%endif
+
 Name:           git
-Version:        2.8.0
-Release:        1.101%{?dist}
+Version:        2.9.3
+Release:        2%{?dist}
 Summary:        Fast Version Control System
 License:        GPLv2
 Group:          Development/Tools
@@ -87,6 +92,10 @@ Patch1:         git-cvsimport-Ignore-cvsps-2.2b1-Branches-output.patch
 # https://bugzilla.redhat.com/600411
 Patch3:         git-1.7-el5-emacs-support.patch
 
+# fix infinite loop + test
+Patch4:         0001-Add-test-for-ls-tree-with-broken-symlink-under-refs-.patch
+Patch5:         0002-resolve_ref_unsafe-limit-the-number-of-stat_ref-retr.patch
+
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 
 %if ! %{use_prebuilt_docs} && ! 0%{?_without_docs}
@@ -103,6 +112,8 @@ BuildRequires:  %{libcurl_devel}
 BuildRequires:  libgnome-keyring-devel
 %endif
 BuildRequires:  pcre-devel
+BuildRequires:  perl-generators
+BuildRequires:  perl(Test)
 BuildRequires:  openssl-devel
 BuildRequires:  zlib-devel >= 1.2
 %if %{bashcomp_pkgconfig}
@@ -369,6 +380,8 @@ rm -rf "$gpghome" # Cleanup tmp gpg home dir
 %if %{emacs_old}
 %patch3 -p1
 %endif
+%patch4 -p1
+%patch5 -p1
 
 %if %{use_prebuilt_docs}
 mkdir -p prebuilt_docs/{html,man}
@@ -384,6 +397,7 @@ find prebuilt_docs/html -type d | xargs rmdir --ignore-fail-on-non-empty
 cat << \EOF > config.mak
 V = 1
 CFLAGS = %{optflags}
+LDFLAGS = %{__global_ldflags}
 BLK_SHA1 = 1
 NEEDS_CRYPTO_WITH_SSL = 1
 USE_LIBPCRE = 1
@@ -441,6 +455,7 @@ make -C contrib/emacs
 %if %{gnome_keyring}
 make -C contrib/credential/gnome-keyring/
 %endif
+make -C contrib/credential/netrc/
 
 make -C contrib/subtree/
 
@@ -477,6 +492,8 @@ install -pm 755 contrib/credential/gnome-keyring/git-credential-gnome-keyring \
 # Remove built binary files, otherwise they will be installed in doc
 make -C contrib/credential/gnome-keyring/ clean
 %endif
+install -pm 755 contrib/credential/netrc/git-credential-netrc \
+    %{buildroot}%{gitcoredir}
 
 make -C contrib/subtree install
 %if ! %{use_prebuilt_docs}
@@ -573,7 +590,7 @@ chmod a-x Documentation/technical/api-index.sh
 find contrib -type f | xargs chmod -x
 
 # Split core files
-not_core_re="git-(add--interactive|am|difftool|instaweb|relink|request-pull|send-mail|submodule)|gitweb|prepare-commit-msg|pre-rebase"
+not_core_re="git-(add--interactive|am|credential-netrc|difftool|instaweb|relink|request-pull|send-mail|submodule)|gitweb|prepare-commit-msg|pre-rebase"
 grep -vE "$not_core_re|\/man\/" bin-man-doc-files > bin-files-core
 grep -vE "$not_core_re" bin-man-doc-files | grep "\/man\/" > man-doc-files-core
 grep -E "$not_core_re" bin-man-doc-files > bin-man-doc-git-files
@@ -725,8 +742,55 @@ rm -rf %{buildroot}
 # No files for you!
 
 %changelog
-* Sun Apr 3 2016 Evgueni Souleimanov <esoule@100500.ca> - 2.8.0-1.101
-- fix broken installation on EL6 due to perl-Digest-MD5 dependency
+* Thu Jan 19 2017 Petr Stodulka <pstodulk@redhat.com> -2.9.3-2
+- fix infinite loop of "git ls-tree" on broken symlink
+  Resolves: #1414792
+
+* Mon Aug 15 2016 Jon Ciesla <limburgher@gmail.com> - 2.9.3-1
+- Update to 2.9.3.
+
+* Fri Jul 15 2016 Jon Ciesla <limburgher@gmail.com> - 2.9.2-1
+- Update to 2.9.2.
+
+* Tue Jul 12 2016 Jon Ciesla <limburgher@gmail.com> - 2.9.1-1
+- Update to 2.9.1.
+
+* Tue Jun 14 2016 Jon Ciesla <limburgher@gmail.com> - 2.9.0-1
+- Update to 2.9.0.
+
+* Wed Jun 08 2016 Jon Ciesla <limburgher@gmail.com> - 2.8.4-1
+- Update to 2.8.4.
+
+* Fri May 20 2016 Jitka Plesnikova <jplesnik@redhat.com> - 2.8.3-2
+- Perl 5.24 rebuild
+
+* Thu May 19 2016 Todd Zullinger <tmz@pobox.com> - 2.8.3-1
+- Update to 2.8.3
+
+* Thu May 19 2016 Jitka Plesnikova <jplesnik@redhat.com> - 2.8.2-5
+- Perl 5.24 re-rebuild of bootstrapped packages
+
+* Wed May 18 2016 Todd Zullinger <tmz@pobox.com> - 2.8.2-4
+- Use perl(MOD::NAME) format for perl-DBD-SQLite and perl-Digest-MD5 deps
+- Define __global_ldflags on EL < 7 (#1337137)
+
+* Wed May 18 2016 Jitka Plesnikova <jplesnik@redhat.com> - 2.8.2-3
+- Perl 5.24 re-rebuild of bootstrapped packages
+
+* Sun May 15 2016 Jitka Plesnikova <jplesnik@redhat.com> - 2.8.2-2
+- Perl 5.24 rebuild
+
+* Fri Apr 29 2016 Todd Zullinger <tmz@pobox.com> - 2.8.2-1
+- Update to 2.8.2
+
+* Mon Apr 11 2016 Todd Zullinger <tmz@pobox.com> - 2.8.1-3
+- Set LDFLAGS for hardened builds (#1289728)
+
+* Wed Apr 06 2016 Paolo Bonzini <pbonzini@redhat.com> - 2.8.1-2
+- Install git-credentials-netrc (#1303358)
+
+* Tue Apr 05 2016 Jon Ciesla <limburgher@gmail.com> - 2.8.1-1
+- Update to 2.8.1.
 
 * Tue Mar 29 2016 Neal Gompa <ngompa13{%}gmail{*}com> - 2.8.0-1
 - Update to 2.8.0
