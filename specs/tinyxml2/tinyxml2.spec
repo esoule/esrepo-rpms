@@ -9,7 +9,7 @@
 
 Name:           tinyxml2
 Version:        3.0.0
-Release:        2%{?dist}
+Release:        2.101%{?dist}
 Summary:        Simple, small and efficient C++ XML parser
 
 Group:          Development/Libraries
@@ -60,12 +60,10 @@ cd objdir
 %cmake .. -DBUILD_STATIC_LIBS=OFF
 make %{?_smp_mflags}
 
-# Library tests were disabled in 3.0.0
-#%check
-#cd objdir
-#make test
-#export LD_LIBRARY_PATH=`pwd`
-#./test
+%check
+cd objdir
+export LD_LIBRARY_PATH=`pwd`
+./xmltest
 
 %install
 rm -rf %{buildroot}
@@ -90,6 +88,9 @@ rm -rf %{buildroot}
 %{_libdir}/pkgconfig/%{name}.pc
 
 %changelog
+* Mon Mar 06 2017 Evgueni Souleimanov <esoule@100500.ca> - 3.0.0-2.101
+- Re-enable tests
+
 * Sat Feb 11 2017 Fedora Release Engineering <releng@fedoraproject.org> - 3.0.0-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_26_Mass_Rebuild
 
