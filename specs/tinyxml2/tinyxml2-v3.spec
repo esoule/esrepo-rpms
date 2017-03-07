@@ -7,15 +7,17 @@
 %global         commitdate      20140914
 %global         gitversion      .%{commitdate}git%{shortcommit}
 
-Name:           tinyxml2
+%global         origname        tinyxml2
+
+Name:           tinyxml2-v3
 Version:        3.0.0
 Release:        2.101%{?dist}
 Summary:        Simple, small and efficient C++ XML parser
 
 Group:          Development/Libraries
 License:        zlib
-URL:            https://github.com/%{githubparent}/%{name}
-Source0:        https://github.com/%{githubparent}/%{name}/archive/%{commit}/%{name}-%{version}-%{shortcommit}.tar.gz
+URL:            https://github.com/%{githubparent}/%{origname}
+Source0:        https://github.com/%{githubparent}/%{origname}/archive/%{commit}/%{origname}-%{version}-%{shortcommit}.tar.gz
 
 # EPEL has a too old CMake which is missing GNUInstallDirs (copied from Fedora 19 CMake)
 BuildRoot:      %(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
@@ -23,6 +25,8 @@ Source1:        GNUInstallDirs.cmake
 Patch0:         tinyxml2-epelbuild.patch
 
 BuildRequires:  cmake
+Provides:       %{origname} = %{version}-%{release}
+Provides:       %{origname}%{?_isa} = %{version}-%{release}
 
 %description
 TinyXML-2 is a simple, small, efficient, C++ XML parser that can be
@@ -38,16 +42,19 @@ parser was completely re-written to make it more appropriate for use in a
 game. It uses less memory, is faster, and uses far fewer memory allocations.
 
 %package devel
-Summary:        Development files for %{name}
+Summary:        Development files for %{origname}
 Group:          Development/Libraries
 Requires:       %{name}%{?_isa} = %{version}-%{release}
+Requires:       %{origname}%{?_isa} = %{version}-%{release}
+Provides:       %{origname}-devel = %{version}-%{release}
+Provides:       %{origname}-devel%{?_isa} = %{version}-%{release}
 
 %description devel
 This package contains the libraries and header files that are needed
-for writing applications with the %{name} library.
+for writing applications with the %{origname} library.
 
 %prep
-%setup -q -n %{name}-%{commit}
+%setup -q -n %{origname}-%{commit}
 chmod -c -x *.cpp *.h
 %if 0%{?rhel} == 5 || 0%{?rhel} == 6
 %patch0 -p1 -b .epel
@@ -79,17 +86,18 @@ rm -rf %{buildroot}
 
 %files
 %doc readme.md
-%{_libdir}/lib%{name}.so.%{version}
-%{_libdir}/lib%{name}.so.3
+%{_libdir}/lib%{origname}.so.%{version}
+%{_libdir}/lib%{origname}.so.3
 
 %files devel
-%{_includedir}/%{name}.h
-%{_libdir}/lib%{name}.so
-%{_libdir}/pkgconfig/%{name}.pc
+%{_includedir}/%{origname}.h
+%{_libdir}/lib%{origname}.so
+%{_libdir}/pkgconfig/%{origname}.pc
 
 %changelog
 * Mon Mar 06 2017 Evgueni Souleimanov <esoule@100500.ca> - 3.0.0-2.101
 - Re-enable tests
+- Rebuild as package name tinyxml2-v3
 
 * Sat Feb 11 2017 Fedora Release Engineering <releng@fedoraproject.org> - 3.0.0-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_26_Mass_Rebuild
