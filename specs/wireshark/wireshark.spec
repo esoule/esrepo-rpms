@@ -17,7 +17,7 @@ Version:	1.8.10
 %if %{svn_version}
 Release: 	0.%{svn_version}%{?dist}
 %else
-Release: 	17%{?dist}
+Release: 	25%{?dist}
 %endif
 License: 	GPL+
 Group: 		Applications/Internet
@@ -83,6 +83,16 @@ Patch43:		wireshark-1.10.12-CVE-2015-0562.patch
 Patch44:		wireshark-1.10.12-CVE-2015-0564.patch
 Patch45:		wireshark-1.10.13-CVE-2015-2189.patch
 Patch46:		wireshark-1.10.13-CVE-2015-2191.patch
+Patch47:		wireshark-1.10.14-CVE-2015-3811.patch
+Patch48:		wireshark-1.10.14-CVE-2015-3812.patch
+Patch49:		wireshark-1.10.3-CVE-2015-3813.patch
+Patch50:		wireshark-1.10.3-CVE-2013-4075.patch
+Patch51:                wireshark-1.8.10-tls-key-exchange-msgs.patch
+Patch52:                wireshark-1.8.10-tls-ext-encrypt-then-mac.patch
+Patch53:                wireshark-1.8.10-tls-cert-verify-msgs.patch
+Patch54:                wireshark-1.8.10-libpcap-format.patch
+Patch55:                wireshark-1.8.10-segfault-cve-2013-4075.patch
+Patch56:                wireshark-1.8.10-valgrind-error-cve-2015-3812.patch
 
 Url: 		http://www.wireshark.org/
 BuildRoot: 	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
@@ -208,7 +218,16 @@ and plugins.
 %patch44 -p1 -b .cve-2015-0564
 %patch45 -p1 -b .cve-2015-2189
 %patch46 -p1 -b .cve-2015-2191
-
+%patch47 -p1 -b .cve-2015-3811
+%patch48 -p1 -b .cve-2015-3812
+%patch49 -p1 -b .cve-2015-3813
+%patch50 -p1 -b .CVE-2013-4075
+%patch51 -p1 -b .tls-key-exchange-msgs
+%patch52 -p1 -b .tls-encrypt-then-mac
+%patch53 -p1 -b .tls-cert-verify-msgs
+%patch54 -p1 -b .libpcap-format
+%patch55 -p1 -b .segfault-CVE-2013-4075
+%patch56 -p1 -b .valgrind-error-CVE-2015-3812
 
 %build
 %ifarch s390 s390x sparcv9 sparc64
@@ -452,6 +471,38 @@ gtk-update-icon-cache %{_datadir}/icons/hicolor &>/dev/null || :
 %{_datadir}/aclocal/*
 
 %changelog
+* Wed Nov 16 2016 Martin Sehnoutka <msehnout@redhat.com> - 1.8.10-25
+- rebuilt
+
+* Fri Nov 11 2016 Martin Sehnoutka <msehnout@redhat.com> - 1.8.10-24
+- Related: #1245887
+- segfault with CVE-2013-4075 capture
+- valgrind error with CVE-2015-3812 capture
+
+* Fri Sep 23 2016 Martin Sehnoutka <msehnout@redhat.com> - 1.8.10-23
+- Resolves: #1238166 - tshark -F option fails to create capture files in .pcap
+  format
+
+* Fri Sep 23 2016 Martin Sehnoutka <msehnout@redhat.com> - 1.8.10-22
+- Resolves: #1240675 - No dissection of the TLS Certificate Verify message
+
+* Fri Sep 23 2016 Martin Sehnoutka <msehnout@redhat.com> - 1.8.10-21
+- Resolves: #1222902 - Encrypt-then-MAC TLS extension unrecognised
+- Patch also include master secret extension decoding in TLS
+
+* Fri Sep 23 2016 Martin Sehnoutka <msehnout@redhat.com> - 1.8.10-20
+- Resolves: #1222895 - Problems decoding TLS Server Key Exchange messages
+
+* Thu Aug 27 2015 Peter Hatina <phatina@redhat.com> - 1.8.10-19
+- Security patches
+- Resolves: CVE-2013-4075
+
+* Fri Aug  7 2015 Peter Hatina <phatina@redhat.com> - 1.8.10-18
+- Security patches
+- Resolves: CVE-2015-3811
+            CVE-2015-3812
+            CVE-2015-3813
+
 * Mon May  4 2015 Peter Hatina <phatina@redhat.com> - 1.8.10-17
 - security patches
 - Resolves: CVE-2015-2189

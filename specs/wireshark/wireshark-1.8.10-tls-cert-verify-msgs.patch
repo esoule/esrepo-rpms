@@ -1,0 +1,106 @@
+diff --git a/epan/dissectors/packet-ssl.c b/epan/dissectors/packet-ssl.c
+index 7b9f9bb..d3ba325 100644
+--- a/epan/dissectors/packet-ssl.c
++++ b/epan/dissectors/packet-ssl.c
+@@ -204,6 +204,8 @@ static gint hf_ssl_handshake_server_keyex_named_curve = -1;
+ static gint hf_ssl_handshake_server_keyex_point     = -1;
+ static gint hf_ssl_handshake_client_keyex_epms      = -1;
+ static gint hf_ssl_handshake_client_keyex_point     = -1;
++static gint hf_ssl_handshake_client_vrfy_sig_len    = -1;
++static gint hf_ssl_handshake_client_vrfy_sig        = -1;
+ static gint hf_ssl_handshake_server_keyex_modulus   = -1;
+ static gint hf_ssl_handshake_server_keyex_exponent  = -1;
+ static gint hf_ssl_handshake_server_keyex_sig       = -1;
+@@ -615,6 +617,9 @@ static gint  ssl_looks_like_valid_v2_handshake(tvbuff_t *tvb,
+ static gint  ssl_looks_like_valid_pct_handshake(tvbuff_t *tvb,
+                                                 const guint32 offset,
+                                                 const guint32 record_length);
++static void  dissect_ssl3_hnd_cli_cert_verify(tvbuff_t *tvb, proto_tree *tree,
++                                              guint32 offset,
++                                              const SslSession *session);
+ /*********************************************************************
+  *
+  * Main dissector
+@@ -2002,7 +2007,7 @@ dissect_ssl3_handshake(tvbuff_t *tvb, packet_info *pinfo,
+                 break;
+ 
+             case SSL_HND_CERT_VERIFY:
+-                /* unimplemented */
++                dissect_ssl3_hnd_cli_cert_verify(tvb, ssl_hand_tree, offset, session);
+                 break;
+ 
+             case SSL_HND_CLIENT_KEY_EXCHG:
+@@ -3072,8 +3077,9 @@ dissect_ssl3_hnd_cert_req(tvbuff_t *tvb,
+ }
+ 
+ static void
+-dissect_ssl3_hnd_srv_keyex_sig(tvbuff_t *tvb, proto_tree *tree,
+-                               guint32 offset, SslSession *session)
++dissect_ssl3_digitally_signed(tvbuff_t *tvb, proto_tree *tree, guint32 offset,
++                              const SslSession *session, gint hf_sig_len,
++                              gint hf_sig)
+ {
+     gint        sig_len;
+     proto_item *ti_algo;
+@@ -3100,10 +3106,40 @@ dissect_ssl3_hnd_srv_keyex_sig(tvbuff_t *tvb, proto_tree *tree,
+ 
+     /* Sig */
+     sig_len = tvb_get_ntohs(tvb, offset);
+-    proto_tree_add_item(tree, hf_ssl_handshake_server_keyex_sig_len, tvb,
+-                        offset, 2, ENC_BIG_ENDIAN);
+-    proto_tree_add_item(tree, hf_ssl_handshake_server_keyex_sig, tvb,
+-                        offset + 2, sig_len, ENC_NA);
++    proto_tree_add_item(tree, hf_sig_len, tvb, offset, 2, ENC_BIG_ENDIAN);
++    proto_tree_add_item(tree, hf_sig, tvb, offset + 2, sig_len, ENC_NA);
++}
++
++static void
++dissect_ssl3_hnd_cli_cert_verify(tvbuff_t *tvb, proto_tree *tree,
++                                 guint32 offset, const SslSession *session)
++{
++    dissect_ssl3_digitally_signed(tvb, tree, offset, session,
++                                  hf_ssl_handshake_client_vrfy_sig_len,
++                                  hf_ssl_handshake_client_vrfy_sig);
++}
++
++static void
++dissect_ssl3_hnd_srv_keyex_sig(tvbuff_t *tvb, proto_tree *tree,
++                               guint32 offset, SslSession *session)
++{
++    /*
++     * TLSv1.2 (RFC 5246 sec 7.4.8)
++     *  struct {
++     *      digitally-signed struct {
++     *          opaque handshake_messages[handshake_messages_length];
++     *      }
++     *  } CertificateVerify;
++     *
++     * TLSv1.0/TLSv1.1 (RFC 5436 sec 7.4.8 and 7.4.3) works essentially the same
++     * as TLSv1.2, but the hash algorithms are not explicit in digitally-signed.
++     *
++     * SSLv3 (RFC 6101 sec 5.6.8) esseentially works the same as TLSv1.0 but it
++     * does more hashing including the master secret and padding.
++     */
++    dissect_ssl3_digitally_signed(tvb, tree, offset, session,
++                                  hf_ssl_handshake_server_keyex_sig_len,
++                                  hf_ssl_handshake_server_keyex_sig);
+ }
+ 
+ static void
+@@ -5261,6 +5297,16 @@ proto_register_ssl(void)
+             FT_BYTES, BASE_NONE, NULL, 0x0,
+             "EC Diffie-Hellman client pubkey", HFILL }
+         },
++        { &hf_ssl_handshake_client_vrfy_sig_len,
++          { "signature length", "ssl.handshake.client_cert_vrfy.sig_len",
++            FT_UINT16, BASE_DEC, NULL, 0x0,
++            "Length of CertificateVerify's signature", HFILL }
++        },
++        { &hf_ssl_handshake_client_vrfy_sig,
++          { "signature", "ssl.handshake.client_cert_vrfy.sig",
++            FT_BYTES, BASE_NONE, NULL, 0x0,
++            "CertificateVerify's signature", HFILL }
++        },
+         { &hf_ssl_handshake_server_keyex_modulus,
+           { "modulus", "ssl.handshake.modulus",
+             FT_BYTES, BASE_NONE, NULL, 0x0,

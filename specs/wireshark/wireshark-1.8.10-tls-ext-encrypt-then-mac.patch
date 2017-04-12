@@ -1,0 +1,127 @@
+diff --git a/epan/dissectors/packet-ssl-utils.c b/epan/dissectors/packet-ssl-utils.c
+index 2e5d7d4..b6c9d03 100644
+--- a/epan/dissectors/packet-ssl-utils.c
++++ b/epan/dissectors/packet-ssl-utils.c
+@@ -1034,6 +1034,8 @@ const value_string tls_hello_extension_types[] = {
+     { 13, "signature_algorithms" },  /* RFC 5246 */
+     { 14, "use_srtp" },
+     { SSL_HND_HELLO_EXT_HEARTBEAT, "Heartbeat" },  /* RFC 6520 */
++    { SSL_HND_HELLO_EXT_ENCRYPT_THEN_MAC_TYPE, "Encrypt then MAC" }, /* RFC 7366 */
++    { SSL_HND_HELLO_EXT_EXTENDED_MASTER_SECRET_TYPE, "Extended Master Secret" }, /* https://tools.ietf.org/html/draft-ietf-tls-session-hash-01 */
+     { 35, "SessionTicket TLS" },  /* RFC 4507 */
+     { SSL_HND_HELLO_EXT_NPN, "next_protocol_negotiation"}, /* http://technotes.googlecode.com/git/nextprotoneg.html */
+     { SSL_HND_HELLO_EXT_RENEG_INFO, "renegotiation_info" }, /* RFC 5746 */
+diff --git a/epan/dissectors/packet-ssl-utils.h b/epan/dissectors/packet-ssl-utils.h
+index 9f86f04..2c9c60d 100644
+--- a/epan/dissectors/packet-ssl-utils.h
++++ b/epan/dissectors/packet-ssl-utils.h
+@@ -147,13 +147,16 @@
+ #define PCT_ERR_SERVER_AUTH_FAILED     0x05
+ #define PCT_ERR_SPECS_MISMATCH         0x06
+ 
+-#define SSL_HND_HELLO_EXT_SERVER_NAME        0x0
+-#define SSL_HND_HELLO_EXT_ELLIPTIC_CURVES    0x000a
+-#define SSL_HND_HELLO_EXT_EC_POINT_FORMATS   0x000b
+-#define SSL_HND_HELLO_EXT_HEARTBEAT          0x000f
+-#define SSL_HND_HELLO_EXT_RENEG_INFO         0xff01
+-#define SSL_HND_HELLO_EXT_NPN                0x3374
+-#define SSL_HND_CERT_STATUS_TYPE_OCSP  1
++#define SSL_HND_HELLO_EXT_SERVER_NAME                 0x0
++#define SSL_HND_HELLO_EXT_ELLIPTIC_CURVES             0x000a
++#define SSL_HND_HELLO_EXT_EC_POINT_FORMATS            0x000b
++#define SSL_HND_HELLO_EXT_SIG_HASH_ALGS               0x000d
++#define SSL_HND_HELLO_EXT_HEARTBEAT                   0x000f
++#define SSL_HND_HELLO_EXT_ENCRYPT_THEN_MAC_TYPE       0x0016
++#define SSL_HND_HELLO_EXT_EXTENDED_MASTER_SECRET_TYPE 0x0017
++#define SSL_HND_HELLO_EXT_RENEG_INFO                  0xff01
++#define SSL_HND_HELLO_EXT_NPN                         0x3374
++#define SSL_HND_CERT_STATUS_TYPE_OCSP                 1
+ 
+ /*
+  * Lookup tables
+@@ -209,13 +212,15 @@ typedef struct _StringInfo {
+ #define DTLSV1DOT0_VERSION_NOT 0x100
+ #define DTLSV1DOT2_VERSION     0xfefd
+ 
+-#define SSL_CLIENT_RANDOM       (1<<0)
+-#define SSL_SERVER_RANDOM       (1<<1)
+-#define SSL_CIPHER              (1<<2)
+-#define SSL_HAVE_SESSION_KEY    (1<<3)
+-#define SSL_VERSION             (1<<4)
+-#define SSL_MASTER_SECRET       (1<<5)
+-#define SSL_PRE_MASTER_SECRET   (1<<6)
++#define SSL_CLIENT_RANDOM                 (1<<0)
++#define SSL_SERVER_RANDOM                 (1<<1)
++#define SSL_CIPHER                        (1<<2)
++#define SSL_HAVE_SESSION_KEY              (1<<3)
++#define SSL_VERSION                       (1<<4)
++#define SSL_MASTER_SECRET                 (1<<5)
++#define SSL_PRE_MASTER_SECRET             (1<<6)
++#define SSL_CLIENT_EXTENDED_MASTER_SECRET (1<<7)
++#define SSL_SERVER_EXTENDED_MASTER_SECRET (1<<8)
+ 
+ #define SSL_CIPHER_MODE_STREAM  0
+ #define SSL_CIPHER_MODE_CBC     1
+diff --git a/epan/dissectors/packet-ssl.c b/epan/dissectors/packet-ssl.c
+index aa9bc5b..7b9f9bb 100644
+--- a/epan/dissectors/packet-ssl.c
++++ b/epan/dissectors/packet-ssl.c
+@@ -2322,7 +2322,8 @@ dissect_ssl3_hnd_hello_common(tvbuff_t *tvb, proto_tree *tree,
+ 
+ static gint
+ dissect_ssl3_hnd_hello_ext(tvbuff_t *tvb,
+-                           proto_tree *tree, guint32 offset, guint32 left)
++                           proto_tree *tree, guint32 offset, guint32 left,
++                           gboolean is_client, SslDecryptSession *ssl)
+ {
+     guint16 extension_length;
+     guint16 ext_type;
+@@ -2382,6 +2383,10 @@ dissect_ssl3_hnd_hello_ext(tvbuff_t *tvb,
+                                 tvb, offset, 1, ENC_BIG_ENDIAN);
+             offset += ext_len;
+             break;
++        case SSL_HND_HELLO_EXT_EXTENDED_MASTER_SECRET_TYPE:
++            if (ssl)
++                ssl->state |= (is_client ? SSL_CLIENT_EXTENDED_MASTER_SECRET : SSL_SERVER_EXTENDED_MASTER_SECRET);
++            break;
+         default:
+             proto_tree_add_bytes_format(ext_tree, hf_ssl_handshake_extension_data,
+                                         tvb, offset, ext_len, NULL,
+@@ -2573,7 +2578,7 @@ dissect_ssl3_hnd_hello_ext_ec_point_formats(tvbuff_t *tvb,
+ static void
+ dissect_ssl3_hnd_cli_hello(tvbuff_t *tvb, packet_info *pinfo,
+        proto_tree *tree, guint32 offset, guint32 length,
+-       SslDecryptSession*ssl)
++       SslDecryptSession *ssl)
+ {
+     /* struct {
+      *     ProtocolVersion client_version;
+@@ -2698,14 +2703,16 @@ dissect_ssl3_hnd_cli_hello(tvbuff_t *tvb, packet_info *pinfo,
+         if (length > offset - start_offset)
+         {
+             dissect_ssl3_hnd_hello_ext(tvb, tree, offset,
+-                                       length - (offset - start_offset));
++                                       length - (offset - start_offset), TRUE,
++                                       ssl);
+         }
+     }
+ }
+ 
+ static void
+ dissect_ssl3_hnd_srv_hello(tvbuff_t *tvb,
+-                           proto_tree *tree, guint32 offset, guint32 length, SslDecryptSession* ssl)
++                           proto_tree *tree, guint32 offset, guint32 length,
++                           SslDecryptSession* ssl)
+ {
+     /* struct {
+      *     ProtocolVersion server_version;
+@@ -2772,7 +2779,8 @@ no_cipher:
+         if (length > offset - start_offset)
+         {
+             dissect_ssl3_hnd_hello_ext(tvb, tree, offset,
+-                                       length - (offset - start_offset));
++                                       length - (offset - start_offset), FALSE,
++                                       ssl);
+         }
+     }
+ }

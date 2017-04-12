@@ -1,0 +1,28 @@
+From 4ee4fc1154f8758c2a2bc3d64c7e2aa79fd217cd Mon Sep 17 00:00:00 2001
+From: Bill Meier <wmeier@newsguy.com>
+Date: Wed, 4 Jun 2014 23:55:06 -0400
+Subject: [PATCH] tshark.c: 'tshark -F libpcap -w ...' should create a libpcap
+ (not pcapng) file; fixes Bug #9991.
+
+Change-Id: I98d6c7c8cb9721ccbfb0220ae3f8550df2e49a1d
+Reviewed-on: https://code.wireshark.org/review/1970
+Reviewed-by: Bill Meier <wmeier@newsguy.com>
+---
+ tshark.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/tshark.c b/tshark.c
+index 345ae84..1ba451b 100644
+--- a/tshark.c
++++ b/tshark.c
+@@ -1596,6 +1596,7 @@ main(int argc, char *argv[])
+           cmdarg_err("Read filters aren't supported when capturing and saving the captured packets.");
+           return 1;
+         }
++        global_capture_opts.use_pcapng = (out_file_type == WTAP_FILE_PCAPNG) ? TRUE : FALSE;
+       } else {
+         /* They didn't specify a "-w" flag, so we won't be saving to a
+            capture file.  Check for options that only make sense if
+-- 
+2.7.4
+
