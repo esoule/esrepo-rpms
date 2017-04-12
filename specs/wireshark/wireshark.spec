@@ -17,7 +17,7 @@ Version:	1.8.10
 %if %{svn_version}
 Release: 	0.%{svn_version}%{?dist}
 %else
-Release: 	17.1.1%{?dist}
+Release: 	17%{?dist}
 %endif
 License: 	GPL+
 Group: 		Applications/Internet
@@ -251,8 +251,6 @@ export LDFLAGS="$LDFLAGS -lm -lcrypto -pie"
    --with-ssl \
    --disable-warnings-as-errors \
    --with-plugins=%{_libdir}/%{name}/plugins/%{version} \
-   --with-dumpcap-group="wireshark" \
-   --enable-setcap-install \
    --enable-airpcap
 
 # Remove rpath
@@ -272,8 +270,13 @@ make DESTDIR=$RPM_BUILD_ROOT install
 # Symlink tshark to tethereal
 ln -s tshark $RPM_BUILD_ROOT%{_sbindir}/tethereal
 
+# install support files for usermode, gnome and kde
+mkdir -p $RPM_BUILD_ROOT/%{_sysconfdir}/pam.d
+install -m 644 %{SOURCE1} $RPM_BUILD_ROOT/%{_sysconfdir}/pam.d/wireshark
+mkdir -p $RPM_BUILD_ROOT/%{_sysconfdir}/security/console.apps
+install -m 644 %{SOURCE2} $RPM_BUILD_ROOT/%{_sysconfdir}/security/console.apps/wireshark
 mkdir -p $RPM_BUILD_ROOT/%{_bindir}
-ln -s %{_sbindir}/wireshark $RPM_BUILD_ROOT/%{_bindir}/wireshark
+ln -s consolehelper $RPM_BUILD_ROOT/%{_bindir}/wireshark
 
 # Install python stuff.
 mkdir -p $RPM_BUILD_ROOT%{python_sitelib}
@@ -397,7 +400,7 @@ gtk-update-icon-cache %{_datadir}/icons/hicolor &>/dev/null || :
 %{_sbindir}/dftest
 %{_sbindir}/capinfos
 %{_sbindir}/randpkt
-%attr(0750, root, wireshark) %caps(cap_net_raw,cap_net_admin=eip) %{_sbindir}/dumpcap
+%{_sbindir}/dumpcap
 %{_sbindir}/tethereal
 %{_sbindir}/rawshark
 %{python_sitelib}/*
@@ -414,6 +417,8 @@ gtk-update-icon-cache %{_datadir}/icons/hicolor &>/dev/null || :
 %{_mandir}/man1/dftest.*
 %{_mandir}/man1/randpkt.*
 %{_datadir}/wireshark
+%config(noreplace) %{_sysconfdir}/pam.d/wireshark
+%config(noreplace) %{_sysconfdir}/security/console.apps/wireshark
 %if %{with_lua}
 %exclude %{_datadir}/wireshark/init.lua
 %endif
@@ -447,17 +452,6 @@ gtk-update-icon-cache %{_datadir}/icons/hicolor &>/dev/null || :
 %{_datadir}/aclocal/*
 
 %changelog
-* Wed Nov 18 2015 Evgueni Souleimanov <esoule@100500.ca> - 1.8.10-17.1.1
-- run Wireshark GUI as user, not root
-- allow packet capture to users who are members of group wireshark
-- replace unrecognized configure options with equivalent
-  ones that are recognized:
-    --with-zlib
-    --with-gtk3=no
-    --with-plugins
-    --enable-airpcap
-- update URL to source tarball
-
 * Mon May  4 2015 Peter Hatina <phatina@redhat.com> - 1.8.10-17
 - security patches
 - Resolves: CVE-2015-2189
