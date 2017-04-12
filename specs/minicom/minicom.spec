@@ -1,7 +1,7 @@
 Summary: A text-based modem control and terminal emulation program
 Name: minicom
 Version: 2.3
-Release: 6.1%{?dist}
+Release: 8%{?dist}
 URL: http://alioth.debian.org/projects/minicom/
 License: GPLv2+
 Group: Applications/Communications
@@ -70,6 +70,12 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man1/*
 
 %changelog
+* Fri Oct 07 2016 Martin Sehnoutka <msehnout@redhat.com> - 2.3-8
+- updated rh patch with function declarations, Related: #765659
+
+* Fri Sep 30 2016 Martin Sehnoutka <msehnout@redhat.com> - 2.3-7.1
+- updated rh patch to support unix socket, Resolves: #765659
+
 * Mon Nov 30 2009 Dennis Gregorovic <dgregor@redhat.com> - 2.3-6.1
 - Rebuilt for RHEL 6
 
