@@ -1,7 +1,7 @@
 Summary: A text-based modem control and terminal emulation program
 Name: minicom
 Version: 2.3
-Release: 6.1.2%{?dist}
+Release: 6.1.1%{?dist}
 URL: http://alioth.debian.org/projects/minicom/
 License: GPLv2+
 Group: Applications/Communications
@@ -10,7 +10,7 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires: lockdev-devel ncurses-devel
 Requires: lockdev lrzsz
 
-Source0: http://alioth.debian.org/frs/download.php/file/2332/minicom-2.3.tar.gz
+Source0: http://alioth.debian.org/frs/download.php/2332/minicom-2.3.tar.gz
 
 Patch1: minicom-2.3-ncurses.patch
 Patch2: minicom-2.3-drop-privs.patch
@@ -72,9 +72,6 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man1/*
 
 %changelog
-* Sat Jul 26 2014 Evgueni Souleimanov <esoule@100500.ca> - 2.3-6.1.2
-- update URL to source tarball
-
 * Sun May 5 2013 Evgueni Souleimanov <esoule@100500.ca> - 2.3-6.1.1
 - Add -b / --baudrate command line option to set baudrate from the
   command line (ignoring the value from config); backported from minicom
