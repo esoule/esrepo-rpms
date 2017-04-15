@@ -1,6 +1,6 @@
 Name:           strip-nondeterminism
-Version:        0.031
-Release:        1.105%{?dist}
+Version:        0.032
+Release:        1.106%{?dist}
 Summary:        Tool for stripping non-deterministic information from files
 
 Group:          Development/Libraries
@@ -16,6 +16,7 @@ Patch1:         strip-nondeterminism-0001-Reformat-AUTHOR-field-for-ExtUtils-Mak
 Patch2:         strip-nondeterminism-0002-t-fixtures.t-stop-using-subtests-on-Test-More-0.92-o.patch
 Patch3:         strip-nondeterminism-0003-Add-bFLT-executable-format-support.patch
 Patch4:         strip-nondeterminism-0004-Add-U-Boot-Legacy-Image-uImage-format-support.patch
+Patch7:         strip-nondeterminism-0007-Include-the-filename-when-testing-failure-fixtures.patch
 BuildArch:      noarch
 
 BuildRequires:  perl(Archive::Zip)
@@ -55,10 +56,11 @@ and the strip-nondeterminism command line utility.
 %patch2 -p1
 %patch3 -p1
 %patch4 -p1
+%patch7 -p1
 mkdir t/fixtures/bflt
 cp %{SOURCE1} %{SOURCE2} t/fixtures/bflt/
 mkdir t/fixtures/uimage
-cp %{SOURCE3} %{SOURCE4} t/fixtures/bflt/
+cp %{SOURCE3} %{SOURCE4} t/fixtures/uimage/
 
 %build
 %{__perl} Makefile.PL INSTALLDIRS=vendor
@@ -97,6 +99,10 @@ rm -rf %{buildroot}
 
 
 %changelog
+* Fri Apr 14 2017 Evgueni Souleimanov <esoule@100500.ca> - 0.032-1.106
+- Update to 0.032
+- Fix a possible endless loop while stripping ar files. (Closes: #857975)
+
 * Sun Jan 22 2017 Evgueni Souleimanov <esoule@100500.ca> - 0.031-1.105
 - Update to 0.031
 - Make build work with ExtUtils::MakeMaker 6.55

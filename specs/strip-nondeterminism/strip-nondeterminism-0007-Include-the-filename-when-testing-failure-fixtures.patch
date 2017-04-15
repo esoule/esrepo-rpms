@@ -1,0 +1,26 @@
+From 7253faafe542329463993b7141f9bce950223e7d Mon Sep 17 00:00:00 2001
+From: Chris Lamb <lamby@debian.org>
+Date: Sat, 18 Mar 2017 18:22:21 +0000
+Subject: [PATCH] Include the filename when testing failure fixtures.
+
+Signed-off-by: Chris Lamb <lamby@debian.org>
+---
+ t/failures.t | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/t/failures.t b/t/failures.t
+index 44ae11d..d7f25af 100644
+--- a/t/failures.t
++++ b/t/failures.t
+@@ -43,7 +43,7 @@ foreach my $filename (@failures) {
+ 		my $normalizer = File::StripNondeterminism::get_normalizer_for_file($in);
+ 		$normalizer->($in);
+ 	};
+-	ok($@ ne "");
++	ok($@ ne "", $filename);
+ }
+ 
+ done_testing;
+-- 
+2.9.3
+
