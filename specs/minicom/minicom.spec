@@ -1,5 +1,6 @@
 Summary: A text-based modem control and terminal emulation program
 Name: minicom
+Epoch: 11
 Version: 2.3
 Release: 8%{?dist}
 URL: http://alioth.debian.org/projects/minicom/
@@ -9,6 +10,11 @@ ExcludeArch: s390 s390x
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires: lockdev-devel ncurses-devel
 Requires: lockdev lrzsz
+# Provides generator automatically provides
+# name = epoch:version-release
+# name(isa) = epoch:version-release
+Provides: %{name} = %{version}-%{release}
+Provides: %{name}%{?_isa} = %{version}-%{release}
 
 Source0: http://alioth.debian.org/frs/download.php/file/2332/minicom-2.3.tar.gz
 
