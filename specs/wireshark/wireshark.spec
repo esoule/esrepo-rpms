@@ -13,6 +13,7 @@
 
 Summary: 	Network traffic analyzer
 Name: 		wireshark
+Epoch:		11
 Version:	1.8.10
 %if %{svn_version}
 Release: 	0.%{svn_version}%{?dist}
@@ -121,6 +122,12 @@ BuildRequires:	lua-devel
 Requires:	shadow-utils
 Obsoletes:	ethereal
 Provides:	ethereal
+# Provides generator automatically provides
+# name = epoch:version-release
+# name(isa) = epoch:version-release
+Provides:	%{name} = %{version}-%{release}
+Provides:	%{name}%{?_isa} = %{version}-%{release}
+
 
 
 %package	gnome
@@ -128,7 +135,10 @@ Summary:	Gnome desktop integration for wireshark and wireshark-usermode
 Group:		Applications/Internet
 Requires: 	gtk2 > 2.24
 Requires:	usermode >= 1.37
+Requires:	wireshark = %{epoch}:%{version}-%{release}
 Requires:	wireshark = %{version}-%{release}
+Requires:	wireshark%{?_isa} = %{epoch}:%{version}-%{release}
+Requires:	wireshark%{?_isa} = %{version}-%{release}
 Requires:	libsmi
 Requires:	xdg-utils, usermode-gtk
 %if %{with_adns}
@@ -139,11 +149,25 @@ Requires:	portaudio
 %endif
 Obsoletes:	ethereal-gnome
 Provides:	ethereal-gnome
+# Provides generator automatically provides
+# name = epoch:version-release
+# name(isa) = epoch:version-release
+Provides:	wireshark-gnome = %{version}-%{release}
+Provides:	wireshark-gnome%{?_isa} = %{version}-%{release}
 
 %package devel
 Summary:        Development headers and libraries for wireshark
 Group:		Development/Libraries
-Requires:       %{name} = %{version}-%{release} glibc-devel glib2-devel
+Requires:	glibc-devel glib2-devel
+Requires:	wireshark = %{epoch}:%{version}-%{release}
+Requires:	wireshark = %{version}-%{release}
+Requires:	wireshark%{?_isa} = %{epoch}:%{version}-%{release}
+Requires:	wireshark%{?_isa} = %{version}-%{release}
+# Provides generator automatically provides
+# name = epoch:version-release
+# name(isa) = epoch:version-release
+Provides:	wireshark-devel = %{version}-%{release}
+Provides:	wireshark-devel%{?_isa} = %{version}-%{release}
 
 
 %description
