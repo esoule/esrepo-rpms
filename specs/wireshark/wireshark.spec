@@ -24,7 +24,7 @@ Group: 		Applications/Internet
 %if %{svn_version}
 Source0:	http://www.wireshark.org/download/automated/src/wireshark-%{version}-SVN-%{svn_version}.tar.bz2
 %else
-Source0:	http://wireshark.org/download/src/%{name}-%{version}.tar.bz2
+Source0:	https://www.wireshark.org/download/src/all-versions/%{name}-%{version}.tar.bz2
 %endif
 Source1:	wireshark.pam
 Source2:	wireshark.console
