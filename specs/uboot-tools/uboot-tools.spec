@@ -2,7 +2,8 @@
 
 Name:      uboot-tools
 Version:   2016.09.01
-Release:   2%{?candidate:.%{candidate}}%{?dist}
+## Release:   2%{?candidate:.%{candidate}}%{?dist}
+Release:   2.1.101%{?dist}
 Summary:   U-Boot utilities
 
 Group:     Development/Tools
@@ -19,9 +20,9 @@ Patch4:    fix-ext4-64bit.patch
 
 BuildRequires:  bc
 BuildRequires:  dtc
-BuildRequires:  fedora-logos
+## BuildRequires:  fedora-logos
 BuildRequires:  git
-BuildRequires:  netpbm-progs
+## BuildRequires:  netpbm-progs
 BuildRequires:  openssl-devel
 BuildRequires:  SDL-devel
 Requires:       dtc
@@ -246,6 +247,9 @@ cp -p board/amlogic/odroid-c2/README doc/README.odroid-c2
 %endif
 
 %changelog
+* Sat May 06 2017 Evgueni Souleimanov <esoule@100500.ca> - 2016.09.01-2.1.101
+- drop fedora-logos and netpbm-progs build requirements, rhbz #1328505
+
 * Wed Oct 19 2016 Peter Robinson <pbrobinson@fedoraproject.org> 2016.09.01-2
 - Add upstream ext4 patches to fix 64 bit feature issues with u-boot and /boot
 
