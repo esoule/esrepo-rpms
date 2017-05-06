@@ -1,13 +1,16 @@
-Summary: Utilities for dealing with MTD (flash) devices
-Name: mtd-utils
-Version: 1.5.1
-Release: 2%{?dist}
+Name:    mtd-utils
+Version: 1.5.2
+Release: 1%{?dist}
 License: GPLv2+
-Group: Applications/System
-URL: http://www.linux-mtd.infradead.org/
+Summary: Utilities for dealing with MTD (flash) devices
+Group:   Applications/System
+URL:     http://www.linux-mtd.infradead.org/
 Source0: ftp://ftp.infradead.org/pub/mtd-utils/%{name}-%{version}.tar.bz2
-BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-BuildRequires: zlib-devel libacl-devel lzo-devel libuuid-devel
+
+BuildRequires: libacl-devel
+BuildRequires: libuuid-devel
+BuildRequires: lzo-devel
+BuildRequires: zlib-devel
 
 %description
 The mtd-utils package contains utilities related to handling MTD devices,
@@ -25,19 +28,17 @@ MTD (flash) devices.
 %setup -q
 
 %build
-CFLAGS="$RPM_OPT_FLAGS" make
+CFLAGS="$RPM_OPT_FLAGS" make V=1
 
 %install
-rm -rf $RPM_BUILD_ROOT
 make DESTDIR=$RPM_BUILD_ROOT SBINDIR=%{_sbindir} MANDIR=%{_mandir} install
 #make DESTDIR=$RPM_BUILD_ROOT SBINDIR=%{_sbindir} MANDIR=%{_mandir} install -C ubi-utils
 
-%clean
-rm -rf $RPM_BUILD_ROOT
-
 
 %files
-%defattr(-,root,root,-)
+%{!?_licensedir:%global license %%doc}
+%license COPYING
+%doc device_table.txt
 %{_sbindir}/doc*
 %{_sbindir}/flash*
 %{_sbindir}/ftl*
@@ -53,14 +54,31 @@ rm -rf $RPM_BUILD_ROOT
 %{_sbindir}/sumtool
 %{_sbindir}/mkfs.ubifs
 %{_sbindir}/mtdinfo
+%{_sbindir}/mtdpart
 %{_mandir}/*/*
-%doc COPYING device_table.txt
 
 
 %files ubi
 %{_sbindir}/ubi*
 
 %changelog
+* Tue Aug 23 2016 Peter Robinson <pbrobinson@fedoraproject.org> 1.5.2-1
+- Update to 1.5.2
+
+* Thu Feb 04 2016 Fedora Release Engineering <releng@fedoraproject.org> - 1.5.1-6
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_24_Mass_Rebuild
+
+* Mon Jul 20 2015 Ralf Corsépius <corsepiu@fedoraproject.org> - 1.5.1-5
+- Append -stdc=gnu89 to CFLAGS (Work-around to c11 compatibility
+  issues. Fix F23FTBFS, RHBZ#1239701).
+- Append V=1 to make-call to make building verbose.
+
+* Wed Jun 17 2015 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.5.1-4
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_23_Mass_Rebuild
+
+* Sun Aug 17 2014 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.5.1-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_21_22_Mass_Rebuild
+
 * Sat Jun 07 2014 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.5.1-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_21_Mass_Rebuild
 
