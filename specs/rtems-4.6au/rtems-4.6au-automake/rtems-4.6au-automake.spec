@@ -61,7 +61,7 @@ URL:		http://www.gnu.org/software/automake
 License:	GPL
 Group:		Development/Tools
 Version:	%{rpmvers}
-Release:	2.1.1%{?dist}
+Release:	3.102%{?dist}
 Summary:	Tool for automatically generating GNU style Makefile.in's
 
 %{?el5:BuildRoot:	%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)}
@@ -76,7 +76,7 @@ Requires:   perl(Thread::Queue)
 Requires:   perl(threads)   
 
 Source0: ftp://ftp.gnu.org/gnu/automake/automake-%{srcvers}.tar.gz
-
+Patch100: automake-1.7-perl-5.11.patch
 
 # rpm-4.9 filter
 %global __requires_exclude %{?__requires_exclude:%__requires_exclude|}^perl\\(Automake::
@@ -99,6 +99,7 @@ standards.
 %prep
 %setup -q -n automake-%{srcvers}
 %{?PATCH0:%patch0 -p1}
+%patch100 -p1
 
 %if 0%{?el5}
 # Work around rpm inserting bogus perl-module deps
@@ -218,6 +219,9 @@ fi
 %{_datadir}/automake-%{amvers}
 
 %changelog
+* Sat May 06 2017 Evgueni Souleimanov <esoule@100500.ca> - 1.7.2-3.102
+- avoid a warning from perl-5.11
+
 * Wed Aug 06 2014 Evgueni Souleimanov <esoule@100500.ca> - 1.7.2-2.1.1
 - build automake 1.7.2 for developing with rtems-4.6 (rtems-4.6au)
 - place manpages to /opt/rtems-4.6au/man

@@ -1,0 +1,32 @@
+From 375912c466b28a6121d351b9ff5513133a1c7227 Mon Sep 17 00:00:00 2001
+From: Jim Meyering <meyering@redhat.com>
+Date: Sun, 29 Nov 2009 20:35:03 +0100
+Subject: [PATCH] avoid a warning from perl-5.11
+
+Note: Backported from automake-1.11.1
+commit 375912c466b2 "avoid a warning from perl-5.11".
+
+* lib/Automake/Wrap.pm (_tab_length): Remove useless use of tr's
+"/d" modifier.
+
+Signed-off-by: Ralf Wildenhues <Ralf.Wildenhues@gmx.de>
+---
+ automake.in          | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/automake.in b/automake.in
+index 4e0eb07..688fb3b 100755
+--- a/automake.in
++++ b/automake.in
+@@ -5901,7 +5901,7 @@ sub pretty_print_internal
+     # character counts for eight.  So we count the number of Tabs and
+     # multiply by 7.
+     my $fill_length = length ($fill);
+-    $fill_length += 7 * ($fill =~ tr/\t/\t/d);
++    $fill_length += 7 * ($fill =~ tr/\t/\t/);
+ 
+     foreach (@values)
+     {
+-- 
+2.9.3
+
