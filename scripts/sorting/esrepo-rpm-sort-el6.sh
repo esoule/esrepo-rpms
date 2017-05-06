@@ -61,6 +61,9 @@ function guess_repo_name()
 	synergy*)
 		repo_name=extras
 		;;
+	uboot-tools*)
+		repo_name=main
+		;;
 	unrar*)
 		repo_name=main
 		;;
