@@ -1,5 +1,6 @@
 Summary: A library for locking devices
 Name: lockdev
+Epoch: 11
 Version: 1.0.1
 Release: 18%{?dist}
 License: LGPLv2
@@ -20,6 +21,12 @@ Patch8: lockdev-1.0.1-32bit.patch
 Patch9: lockdev-1.0.1-gccwarn.patch
 Patch10: lockdev-1.0.1-man8.patch
 
+# Provides generator automatically provides
+# name = epoch:version-release
+# name(isa) = epoch:version-release
+Provides: %{name} = %{version}-%{release}
+Provides: %{name}%{?_isa} = %{version}-%{release}
+
 Requires(pre): shadow-utils
 Requires(post): glibc
 Requires(postun): glibc
@@ -35,6 +42,10 @@ using both FSSTND and SVr4 methods.
 Summary: The header files and a static library for the lockdev library
 Group: System Environment/Libraries
 Requires: lockdev = %{version}-%{release}
+# Additional Requires due to Epoch addition
+Requires: lockdev = %{epoch}:%{version}-%{release}
+Requires: lockdev%{?_isa} = %{epoch}:%{version}-%{release}
+Requires: lockdev%{?_isa} = %{version}-%{release}
 
 %description devel
 The lockdev library provides a reliable way to put an exclusive lock
