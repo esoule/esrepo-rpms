@@ -1,8 +1,7 @@
 Summary: A text-based modem control and terminal emulation program
 Name: minicom
-Epoch: 11
 Version: 2.3
-Release: 8.1.102%{?dist}
+Release: 8%{?dist}
 URL: http://alioth.debian.org/projects/minicom/
 License: GPLv2+
 Group: Applications/Communications
@@ -10,13 +9,8 @@ ExcludeArch: s390 s390x
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildRequires: lockdev-devel ncurses-devel
 Requires: lockdev lrzsz
-# Provides generator automatically provides
-# name = epoch:version-release
-# name(isa) = epoch:version-release
-Provides: %{name} = %{version}-%{release}
-Provides: %{name}%{?_isa} = %{version}-%{release}
 
-Source0: http://alioth.debian.org/frs/download.php/file/2332/minicom-2.3.tar.gz
+Source0: http://alioth.debian.org/frs/download.php/2332/minicom-2.3.tar.gz
 
 Patch1: minicom-2.3-ncurses.patch
 Patch2: minicom-2.3-drop-privs.patch
@@ -27,7 +21,6 @@ Patch8: minicom-2.3-rh.patch
 Patch9: minicom-2.3-esc.patch
 Patch10: minicom-2.3-staticbuf.patch
 Patch11: minicom-2.3-getline.patch
-Patch41: minicom-2.3-baud-dev-cmdline.patch
 
 %description
 Minicom is a simple text-based modem control and terminal emulation
@@ -46,7 +39,6 @@ language, and other features.
 %patch9 -p1 -b .esc
 %patch10 -p1 -b .staticbuf
 %patch11 -p1 -b .getline
-%patch41 -p1 -b .baud-dev-cmdline
 
 cp -pr doc doc_
 rm -f doc_/Makefile*
@@ -78,10 +70,6 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man1/*
 
 %changelog
-* Wed Apr 12 2017 Evgueni Souleimanov <esoule@100500.ca> - 2.3-8.1.102
-- Add -b / --baudrate command line option (from minicom 2.4)
-- Add -D / --device command line option (from minicom 2.4)
-
 * Fri Oct 07 2016 Martin Sehnoutka <msehnout@redhat.com> - 2.3-8
 - updated rh patch with function declarations, Related: #765659
 
