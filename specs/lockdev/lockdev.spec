@@ -2,12 +2,13 @@ Summary: A library for locking devices
 Name: lockdev
 Epoch: 11
 Version: 1.0.1
-Release: 18%{?dist}
+Release: 18.1.101%{?dist}
 License: LGPLv2
 Group: System Environment/Libraries
 URL: http://packages.debian.org/unstable/source/lockdev
 Source0: http://ftp.debian.org/debian/pool/main/l/lockdev/%{name}_%{version}.orig.tar.gz
 Source1: lockdev.8
+Source101: lockdev.pc.in
 
 Patch0: lockdev-1.0.0-rh.patch
 Patch1: lockdev-1.0.0-shared.patch
@@ -68,8 +69,21 @@ package contains the development headers and a static library.
 
 cp %SOURCE1 ./docs
 
+cp %SOURCE101 ./lockdev.pc.in
+touch --reference %SOURCE101 ./lockdev.pc.in
+
 %build
 make "CFLAGS=${RPM_OPT_FLAGS} -fPIC"
+
+sed \
+	-e 's|@prefix@|%{_prefix}|g' \
+	-e 's|@exec_prefix@|%{_exec_prefix}|g' \
+	-e 's|@libdir@|%{_libdir}|g' \
+	-e 's|@includedir@|%{_includedir}|g' \
+	-e 's|@VERSION@|%{version}|g' \
+	lockdev.pc.in >lockdev.pc
+
+touch --reference ChangeLog lockdev.pc
 
 %install
 make \
@@ -79,6 +93,10 @@ make \
     mandir=${RPM_BUILD_ROOT}%{_mandir} \
         install
 /sbin/ldconfig -n $RPM_BUILD_ROOT/%{_libdir}
+
+mkdir -p ${RPM_BUILD_ROOT}%{_libdir}/pkgconfig
+
+install -p -m 0644 lockdev.pc ${RPM_BUILD_ROOT}%{_libdir}/pkgconfig/
 
 mkdir -p $RPM_BUILD_ROOT/var/lock
 
@@ -102,10 +120,14 @@ rm -fr $RPM_BUILD_ROOT
 %defattr(-,root,root)
 %{_libdir}/*.a
 %{_libdir}/*.so
+%{_libdir}/pkgconfig/lockdev.pc
 %{_mandir}/man3/*
 %{_includedir}/*
 
 %changelog
+* Wed May 17 2017 Evgueni Souleimanov <esoule@100500.ca> - 1.0.1-18.1.101
+- Provide pkg-config file
+
 * Tue Dec 01 2009 Jiri Popelka <jpopelka@redhat.com> - 1.0.1-18
 - Added license text to package
 
