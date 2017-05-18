@@ -46,6 +46,9 @@ function guess_repo_name()
 	lha*)
 		repo_name=main
 		;;
+	lockdev*)
+		repo_name=extras
+		;;
 	m68k-elf-tools*)
 		repo_name=main
 		;;
