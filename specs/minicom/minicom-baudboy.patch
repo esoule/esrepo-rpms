@@ -1,0 +1,12 @@
+diff -urN a/src/minicom.h b/src/minicom.h
+--- a/src/minicom.h	2013-12-08 10:26:03.000000000 +0000
++++ b/src/minicom.h	2013-12-08 10:26:03.000000000 +0000
+@@ -37,7 +37,7 @@
+ #include <stdbool.h>
+ 
+ #if HAVE_LOCKDEV
+-#include <ttylock.h>
++#include <baudboy.h>
+ #endif
+ 
+ #ifdef USE_SOCKET

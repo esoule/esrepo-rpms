@@ -3,7 +3,7 @@ Summary: A text-based modem control and terminal emulation program
 Name: minicom
 Epoch: 11
 Version: 2.7
-Release: 6%{?dist}
+Release: 6.1.101%{?dist}
 URL: http://alioth.debian.org/projects/minicom/
 License: GPL+ and GPLv2+ and GPLv2 and LGPLv2+ Public Domain and Copyright only
 Group: Applications/Communications
@@ -15,6 +15,8 @@ Provides: %{name} = %{version}-%{release}
 Provides: %{name}%{?_isa} = %{version}-%{release}
 
 Source0: https://alioth.debian.org/frs/download.php/file/3977/minicom-2.7.tar.gz
+Patch101: minicom-autoconf.patch
+Patch102: minicom-baudboy.patch
 
 BuildRequires: lockdev-devel ncurses-devel autoconf automake gettext-devel
 Requires: lockdev lrzsz
@@ -30,13 +32,22 @@ language, and other features.
 %prep
 %setup -q
 
+%if 0%{?rhel} && 0%{?rhel} <= 6
+%patch101 -p1 -b .minicom-autoconf
+%patch102 -p1 -b .minicom-baudboy
+touch --reference configure.in.minicom-autoconf configure.in
+%endif
+
 cp -pr doc doc_
 rm -f doc_/Makefile*
 
 
 %build
 #./autogen.sh
+%if 0%{?rhel} == 0
 autoreconf --verbose --force --install
+%endif
+
 %configure
 make %{?_smp_mflags}
 
@@ -59,6 +70,9 @@ mkdir -p %{buildroot}%{_sysconfdir}
 
 
 %changelog
+* Wed Apr 12 2017 Evgueni Souleimanov <esoule@100500.ca> - 2.7-6.1.101
+- Fix build on CentOS 6
+
 * Thu Feb 04 2016 Fedora Release Engineering <releng@fedoraproject.org> - 2.7-6
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_24_Mass_Rebuild
 

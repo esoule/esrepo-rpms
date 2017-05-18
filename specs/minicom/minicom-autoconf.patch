@@ -1,0 +1,12 @@
+diff -urN a/configure.in b/configure.in
+--- a/configure.in	2013-12-31 15:14:09.000000000 +0000
++++ b/configure.in	2013-12-31 15:14:09.000000000 +0000
+@@ -12,7 +12,7 @@
+ 
+ dnl Checks for programs.
+ AC_PROG_CC
+-AM_PROG_AR
++m4_pattern_allow([AM_PROG_AR], [AM_PROG_AR])
+ 
+ AC_AIX
+ AC_MINIX
