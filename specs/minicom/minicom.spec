@@ -1,26 +1,18 @@
+
 Summary: A text-based modem control and terminal emulation program
 Name: minicom
-Version: 2.3
-Release: 8%{?dist}
+Version: 2.7
+Release: 6%{?dist}
 URL: http://alioth.debian.org/projects/minicom/
-License: GPLv2+
+License: GPL+ and GPLv2+ and GPLv2 and LGPLv2+ Public Domain and Copyright only
 Group: Applications/Communications
 ExcludeArch: s390 s390x
-BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-BuildRequires: lockdev-devel ncurses-devel
+
+Source0: https://alioth.debian.org/frs/download.php/file/3977/minicom-2.7.tar.gz
+
+BuildRequires: lockdev-devel ncurses-devel autoconf automake gettext-devel
 Requires: lockdev lrzsz
 
-Source0: http://alioth.debian.org/frs/download.php/2332/minicom-2.3.tar.gz
-
-Patch1: minicom-2.3-ncurses.patch
-Patch2: minicom-2.3-drop-privs.patch
-Patch4: minicom-2.2-umask.patch
-Patch6: minicom-2.2-spaces.patch
-Patch7: minicom-2.3-gotodir.patch
-Patch8: minicom-2.3-rh.patch
-Patch9: minicom-2.3-esc.patch
-Patch10: minicom-2.3-staticbuf.patch
-Patch11: minicom-2.3-getline.patch
 
 %description
 Minicom is a simple text-based modem control and terminal emulation
@@ -28,40 +20,30 @@ program somewhat similar to MSDOS Telix. Minicom includes a dialing
 directory, full ANSI and VT100 emulation, an (external) scripting
 language, and other features.
 
+
 %prep
 %setup -q
-%patch1 -p1 -b .ncurses
-%patch2 -p1 -b .drop-privs
-%patch4 -p1 -b .umask
-%patch6 -p1 -b .spaces
-%patch7 -p1 -b .gotodir
-%patch8 -p1 -b .rh
-%patch9 -p1 -b .esc
-%patch10 -p1 -b .staticbuf
-%patch11 -p1 -b .getline
 
 cp -pr doc doc_
 rm -f doc_/Makefile*
 
+
 %build
+#./autogen.sh
+autoreconf --verbose --force --install
 %configure
 make %{?_smp_mflags}
 
+
 %install
-rm -rf $RPM_BUILD_ROOT
-make DESTDIR=$RPM_BUILD_ROOT install
-mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}
-install -p -m 644 doc/minicom.users $RPM_BUILD_ROOT%{_sysconfdir}/minicom.users
+make DESTDIR=%{buildroot} install
+mkdir -p %{buildroot}%{_sysconfdir}
 
 %find_lang %{name}
 
-%clean
-rm -rf $RPM_BUILD_ROOT
 
 %files -f %{name}.lang
-%defattr(-,root,root)
 %doc ChangeLog AUTHORS NEWS TODO doc_/*
-%config(noreplace) %{_sysconfdir}/minicom.users
 # DO NOT MAKE minicom SUID/SGID anything.
 %{_bindir}/minicom
 %{_bindir}/runscript
@@ -69,15 +51,95 @@ rm -rf $RPM_BUILD_ROOT
 %{_bindir}/ascii-xfr
 %{_mandir}/man1/*
 
+
 %changelog
-* Fri Oct 07 2016 Martin Sehnoutka <msehnout@redhat.com> - 2.3-8
-- updated rh patch with function declarations, Related: #765659
+* Thu Feb 04 2016 Fedora Release Engineering <releng@fedoraproject.org> - 2.7-6
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_24_Mass_Rebuild
 
-* Fri Sep 30 2016 Martin Sehnoutka <msehnout@redhat.com> - 2.3-7.1
-- updated rh patch to support unix socket, Resolves: #765659
+* Wed Jun 17 2015 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.7-5
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_23_Mass_Rebuild
 
-* Mon Nov 30 2009 Dennis Gregorovic <dgregor@redhat.com> - 2.3-6.1
-- Rebuilt for RHEL 6
+* Sat Feb 21 2015 Till Maas <opensource@till.name> - 2.7-4
+- Rebuilt for Fedora 23 Change
+  https://fedoraproject.org/wiki/Changes/Harden_all_packages_with_position-independent_code
+
+* Sun Aug 17 2014 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.7-3
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_21_22_Mass_Rebuild
+
+* Sat Jun 07 2014 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.7-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_21_Mass_Rebuild
+
+* Mon Jan 06 2014 Jaromir Capik <jcapik@redhat.com> - 2.7-1
+- Update to 2.7
+- Fixing bogus dates in the changelog
+
+* Wed Aug 07 2013 Jaromir Capik <jcapik@redhat.com> - 2.6.2-4
+- Fixing the license tag
+
+* Wed Jul 31 2013 Jaromir Capik <jcapik@redhat.com> - 2.6.2-3
+- RH man page scan (#948521)
+
+* Thu Feb 07 2013 Jaromir Capik <jcapik@redhat.com> - 2.6.2-2
+- Disabling lockfile warnings when the device disappears (ttyUSB hot unplug)
+
+* Thu Feb 07 2013 Jaromir Capik <jcapik@redhat.com> - 2.6.2-1
+- Update to 2.6.2
+
+* Wed Jan 23 2013 Jaromir Capik <jcapik@redhat.com> - 2.6.1-2
+- Disable lock path config when built with lockdev (#754235)
+
+* Tue Jan 22 2013 Jaromir Capik <jcapik@redhat.com> - 2.6.1-1
+- Update to 2.6.1
+
+* Thu Nov 22 2012 Jaromir Capik <jcapik@redhat.com> 2.5-11
+- Fixing the license tag
+
+* Wed Nov 21 2012 Jaromir Capik <jcapik@redhat.com> 2.5-10
+- Removing de-ANSI-fication (obsolete - support removed from autotools)
+
+* Fri Jul 20 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.5-9
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_18_Mass_Rebuild
+
+* Fri Jan 13 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.5-8
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_17_Mass_Rebuild
+
+* Mon Oct 24 2011 Jaromir Capik <jcapik@redhat.com> 2.5-7
+- applying modified lockdev patch made by Jiri Popelka (#747936)
+- minor spec file changes according to the latest guidelines
+
+* Wed Apr 6 2011 Jan Görig <jgorig@redhat.com> 2.5-6
+- reverted last change (#681898)
+
+* Wed Mar 9 2011 Jan Görig <jgorig@redhat.com> 2.5-5
+- dropped rh patch because /var/lock/lockdev is now world writeable
+
+* Thu Feb 24 2011 Jan Görig <jgorig@redhat.com> 2.5-4
+- fixed crashing on device reconnecting (#678812)
+
+* Wed Feb 09 2011 Jan Görig <jgorig@redhat.com> 2.5-3
+- fixed crashing on non-readable directory (#675400)
+- fixed typos in minicom and runscript manpages (#675453,#675456)
+
+* Tue Feb 08 2011 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.5-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_15_Mass_Rebuild
+
+* Mon Jan 31 2011 Jan Görig <jgorig@redhat.com> 2.5-1
+- update to new upstream version
+- remove patches merged by upstream
+- update rh patch to support unix socket (#592355)
+
+* Fri Jan 14 2011 Jan Görig <jgorig@redhat.com> 2.4-2
+- fixed typos in ascii-xfr manpage (#669098)
+- fixed empty lines handling in configuration file (#669406)
+
+* Tue Mar 9 2010 Jan Görig <jgorig@redhat.com> 2.4-1
+- update to 2.4
+- /etc/minicom.users removed by upstream
+- add minicom-2.4-config.patch
+- remove minicom-2.3-getline.patch - fixed in upstream
+- remove minicom-2.3-drop-privs.patch - permissions handling removed by upstream
+- remove minicom-2.3-ncurses.patch - deprecated
+- modify minicom-2.4-rh.patch - wrong doinit checking (#519637)
 
 * Sat Jul 25 2009 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 2.3-6
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_12_Mass_Rebuild
@@ -94,7 +156,7 @@ rm -rf $RPM_BUILD_ROOT
 - rediff patches with fuzz
 
 * Thu Mar 13 2008 Lubomir Kundrak <lkundrak@redhat.com> 2.3-2
-- Add ChangeLog to %doc
+- Add ChangeLog to %%doc
 
 * Sun Feb 24 2008 Lubomir Kundrak <lkundrak@redhat.com> 2.3-1
 - 2.3
@@ -308,7 +370,7 @@ rm -rf $RPM_BUILD_ROOT
 * Sun Mar 21 1999 Cristian Gafton <gafton@redhat.com> 
 - auto rebuild in the new build environment (release 5)
 
-* Tue Jan 24 1999 Michael Maher <mike@redhat.com>
+* Sun Jan 24 1999 Michael Maher <mike@redhat.com>
 - fixed bug, changed groups.
 
 * Thu Oct 01 1998 Cristian Gafton <gafton@redhat.com>
@@ -327,7 +389,7 @@ rm -rf $RPM_BUILD_ROOT
 - BuildRoot; updated .make patch to cope with the buildroot
 - fixed the spec file
 
-* Tue May 06 1998 Michael Maher <mike@redhat.com>
+* Wed May 06 1998 Michael Maher <mike@redhat.com>
 - update of package (1.81)
 
 * Wed Oct 29 1997 Otto Hammersmith <otto@redhat.com>
